@@ -1,7 +1,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { PatientData, Diagnosis } from './types';
-import { generateDiagnoses } from './services/geminiService';
 import Header from './components/Header';
 import InputForm from './components/InputForm';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -39,6 +38,7 @@ const App: React.FC = () => {
         setError(null);
         setDiagnoses([]);
         try {
+            const { generateDiagnoses } = await import('./services/geminiService');
             const result = await generateDiagnoses(patientData);
             setDiagnoses(result);
         } catch (err) {
