@@ -1,15 +1,17 @@
+
 import React from 'react';
 import { PatientData } from '../types';
-import { AnalyzeIcon } from './icons';
+import { AnalyzeIcon, SparklesIcon } from './icons';
 
 interface InputFormProps {
     patientData: PatientData;
     setPatientData: React.Dispatch<React.SetStateAction<PatientData>>;
     onSubmit: () => void;
     isLoading: boolean;
+    onOpenSymptomChecker: () => void;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ patientData, setPatientData, onSubmit, isLoading }) => {
+const InputForm: React.FC<InputFormProps> = ({ patientData, setPatientData, onSubmit, isLoading, onOpenSymptomChecker }) => {
     
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -34,6 +36,18 @@ const InputForm: React.FC<InputFormProps> = ({ patientData, setPatientData, onSu
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg sticky top-8">
             <h2 className="text-xl font-semibold mb-4 text-slate-700 border-b pb-3">Patient Information</h2>
+            
+            <div className="mb-4">
+                <button
+                    type="button"
+                    onClick={onOpenSymptomChecker}
+                    className="w-full flex items-center justify-center text-sm bg-blue-50 text-blue-700 font-semibold py-2 px-3 rounded-md shadow-sm border border-blue-200 hover:bg-blue-100 transition-colors"
+                >
+                    <SparklesIcon className="h-5 w-5 mr-2" />
+                    AI Symptom Checker
+                </button>
+            </div>
+            
             <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>

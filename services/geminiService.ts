@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { PatientData, Diagnosis } from '../types';
 
@@ -34,14 +35,16 @@ const fullSchema = {
     required: ["diagnoses"],
 };
 
-export const generateDiagnoses = async (patientData: PatientData): Promise<Diagnosis[]> => {
+const getAiClient = () => {
     const API_KEY = process.env.API_KEY;
-
     if (!API_KEY) {
         throw new Error("API_KEY environment variable not set. Application cannot connect to the AI service.");
     }
-    
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    return new GoogleGenAI({ apiKey: API_KEY });
+};
+
+export const generateDiagnoses = async (patientData: PatientData): Promise<Diagnosis[]> => {
+    const ai = getAiClient();
 
     const prompt = `
         You are an expert medical AI assistant, "MediDx Assistant". Your purpose is to help clinicians and medical students by generating a differential diagnosis based on patient data. You must adhere to strict safety protocols.
@@ -99,5 +102,36 @@ export const generateDiagnoses = async (patientData: PatientData): Promise<Diagn
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         throw new Error("Failed to communicate with the AI service.");
+    }
+};
+
+export const analyzeSymptoms = async (symptomText: string): Promise<string[]> => {
+    const ai = getAiClient();
+    
+    const prompt = `
+        You are an AI medical assistant. Analyze the following symptom description and provide a list of 3-5 potential underlying medical conditions.
+        This is for preliminary informational purposes to help guide further investigation, not for diagnosis.
+        Respond with ONLY a comma-separated list of the condition names. Do not use markdown, numbering, or any other formatting.
+        Example response: Condition A, Condition B, Condition C
+
+        Symptom description: "${symptomText}"
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+
+        const text = response.text?.trim();
+        if (!text) {
+            return [];
+        }
+        
+        return text.split(',').map(condition => condition.trim());
+
+    } catch (error) {
+        console.error("Error calling Gemini API for symptom analysis:", error);
+        throw new Error("Failed to communicate with the AI service for symptom analysis.");
     }
 };

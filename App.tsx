@@ -8,6 +8,7 @@ import DisclaimerFooter from './components/DisclaimerFooter';
 import ActionButtons from './components/ActionButtons';
 import { generatePdf, generateDischargeSummary, generateReferralLetter } from './utils/reportGenerator';
 import Modal from './components/Modal';
+import SymptomCheckerModal from './components/SymptomCheckerModal';
 
 const App: React.FC = () => {
     const [patientData, setPatientData] = useState<PatientData>({
@@ -29,6 +30,7 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [isSymptomCheckerOpen, setIsSymptomCheckerOpen] = useState<boolean>(false);
     const [modalContent, setModalContent] = useState({ title: '', content: '' });
 
     const resultsRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,19 @@ const App: React.FC = () => {
         setModalContent({ title, content });
         setIsModalOpen(true);
     };
+    
+    const handlePopulateFromSymptomChecker = (symptomText: string, conditions: string[]) => {
+        const conditionsText = conditions.length > 0
+            ? `\n\nPotential Conditions Identified by AI Symptom Checker:\n- ${conditions.join('\n- ')}`
+            : '';
+        
+        setPatientData(prev => ({
+            ...prev,
+            symptoms: `${symptomText}${conditionsText}`
+        }));
+        setIsSymptomCheckerOpen(false);
+    };
+
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -75,6 +90,7 @@ const App: React.FC = () => {
                             setPatientData={setPatientData}
                             onSubmit={handleFormSubmit}
                             isLoading={isLoading}
+                            onOpenSymptomChecker={() => setIsSymptomCheckerOpen(true)}
                         />
                     </div>
                     <div className="lg:col-span-8 xl:col-span-9">
@@ -100,6 +116,12 @@ const App: React.FC = () => {
                     title={modalContent.title}
                     content={modalContent.content}
                     onClose={() => setIsModalOpen(false)}
+                />
+            )}
+            {isSymptomCheckerOpen && (
+                <SymptomCheckerModal
+                    onClose={() => setIsSymptomCheckerOpen(false)}
+                    onPopulate={handlePopulateFromSymptomChecker}
                 />
             )}
         </div>
