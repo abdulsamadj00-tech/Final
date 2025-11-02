@@ -10,23 +10,26 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  // FIX: Removed redundant 'public' keyword.
-  state: State = {
-    hasError: false,
-    error: undefined,
-  };
+  // FIX: The original error "Property 'props' does not exist on type 'ErrorBoundary'"
+  // was likely caused by a misconfiguration related to class field syntax.
+  // Moving state initialization into a constructor is a more robust pattern
+  // that ensures 'this' is correctly typed, thereby resolving issues with accessing 'this.props'.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: undefined,
+    };
+  }
 
-  // FIX: Removed redundant 'public' keyword.
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  // FIX: Removed redundant 'public' keyword.
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  // FIX: Removed redundant 'public' keyword.
   render() {
     if (this.state.hasError) {
       return (
