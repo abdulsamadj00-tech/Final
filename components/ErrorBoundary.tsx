@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
@@ -10,10 +11,6 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  // FIX: The original error "Property 'props' does not exist on type 'ErrorBoundary'"
-  // was likely caused by a misconfiguration related to class field syntax.
-  // Moving state initialization into a constructor is a more robust pattern
-  // that ensures 'this' is correctly typed, thereby resolving issues with accessing 'this.props'.
   constructor(props: Props) {
     super(props);
     this.state = {

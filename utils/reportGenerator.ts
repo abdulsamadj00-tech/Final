@@ -1,3 +1,4 @@
+
 import { PatientData, Diagnosis, Vitals } from '../types';
 // Note: Ensure jsPDF and html2canvas are loaded via script tags in index.html
 declare const jspdf: any;

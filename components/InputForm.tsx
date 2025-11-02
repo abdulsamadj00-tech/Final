@@ -72,8 +72,8 @@ const InputForm: React.FC<InputFormProps> = ({ patientData, setPatientData, onSu
                             onChange={handleChange}
                             className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                         >
-                            <option>Female</option>
                             <option>Male</option>
+                            <option>Female</option>
                             <option>Other</option>
                         </select>
                     </div>

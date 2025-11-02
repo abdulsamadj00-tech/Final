@@ -13,7 +13,7 @@ import SymptomCheckerModal from './components/SymptomCheckerModal';
 const App: React.FC = () => {
     const [patientData, setPatientData] = useState<PatientData>({
         age: '',
-        sex: 'Female',
+        sex: 'Male',
         symptoms: '',
         findings: '',
         labs: '',
