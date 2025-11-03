@@ -59,7 +59,7 @@ const formatDiagnosesList = (diagnoses: Diagnosis[]) => {
 
 const formatVitals = (vitals: Vitals): string => {
     const parts = [
-        vitals.temp && `Temp: ${vitals.temp}°C`,
+        vitals.temp && `Temp: ${vitals.temp}`,
         vitals.hr && `HR: ${vitals.hr} bpm`,
         vitals.rr && `RR: ${vitals.rr} breaths/min`,
         vitals.bp && `BP: ${vitals.bp} mmHg`,
@@ -68,6 +68,15 @@ const formatVitals = (vitals: Vitals): string => {
     
     if (parts.length === 0) return 'Not recorded.';
     return parts.join(' | ');
+}
+
+const formatHistory = (patientData: PatientData): string => {
+    let history = '';
+    if (patientData.pmh) history += `\n- Past Medical History: ${patientData.pmh}`;
+    if (patientData.psh) history += `\n- Past Surgical History: ${patientData.psh}`;
+    if (patientData.socialHistory) history += `\n- Social History: ${patientData.socialHistory}`;
+    if (patientData.allergies) history += `\n- Allergies: ${patientData.allergies}`;
+    return history.trim() ? history : 'Not recorded.';
 }
 
 export const generateDischargeSummary = (patientData: PatientData, diagnoses: Diagnosis[]): string => {
@@ -81,11 +90,13 @@ Patient Information:
 Age: ${patientData.age}
 Sex: ${patientData.sex}
 
-Vital Signs:
-${formatVitals(patientData.vitals)}
-
 Presenting Complaint:
 ${patientData.symptoms}
+
+Relevant History:${formatHistory(patientData)}
+
+Vital Signs:
+${formatVitals(patientData.vitals)}
 
 Key Examination & Investigation Findings:
 - Examination: ${patientData.findings || 'N/A'}
@@ -131,6 +142,8 @@ I am referring this ${patientData.age}-year-old ${patientData.sex.toLowerCase()}
 
 The patient presented with the following symptoms:
 ${patientData.symptoms}
+
+Relevant History:${formatHistory(patientData)}
 
 Vital Signs on presentation:
 ${formatVitals(patientData.vitals)}

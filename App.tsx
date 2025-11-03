@@ -9,6 +9,7 @@ import ActionButtons from './components/ActionButtons';
 import { generatePdf, generateDischargeSummary, generateReferralLetter } from './utils/reportGenerator';
 import Modal from './components/Modal';
 import SymptomCheckerModal from './components/SymptomCheckerModal';
+import { analyzeLabReportImage, generateDiagnoses, analyzeExamImage, analyzeImagingImage } from './services/geminiService';
 
 const App: React.FC = () => {
     const [patientData, setPatientData] = useState<PatientData>({
@@ -18,13 +19,11 @@ const App: React.FC = () => {
         findings: '',
         labs: '',
         imaging: '',
-        vitals: {
-            temp: '',
-            hr: '',
-            rr: '',
-            bp: '',
-            spo2: '',
-        },
+        vitals: { temp: '', hr: '', rr: '', bp: '', spo2: '' },
+        pmh: '',
+        psh: '',
+        socialHistory: '',
+        allergies: '',
     });
     const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -32,6 +31,10 @@ const App: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isSymptomCheckerOpen, setIsSymptomCheckerOpen] = useState<boolean>(false);
     const [modalContent, setModalContent] = useState({ title: '', content: '' });
+    const [tempUnit, setTempUnit] = useState<'C' | 'F'>('C');
+    const [isProcessingLabs, setIsProcessingLabs] = useState<boolean>(false);
+    const [isProcessingFindings, setIsProcessingFindings] = useState<boolean>(false);
+    const [isProcessingImaging, setIsProcessingImaging] = useState<boolean>(false);
 
     const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -40,8 +43,7 @@ const App: React.FC = () => {
         setError(null);
         setDiagnoses([]);
         try {
-            const { generateDiagnoses } = await import('./services/geminiService');
-            const result = await generateDiagnoses(patientData);
+            const result = await generateDiagnoses(patientData, tempUnit);
             setDiagnoses(result);
         } catch (err) {
             setError('Failed to generate diagnosis. Please check your input and try again.');
@@ -49,7 +51,50 @@ const App: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [patientData]);
+    }, [patientData, tempUnit]);
+
+    const handleAnalyzeLabImage = async (base64Data: string, mimeType: string) => {
+        setIsProcessingLabs(true);
+        setError(null);
+        try {
+            const extractedText = await analyzeLabReportImage(base64Data, mimeType);
+            setPatientData(prev => ({ ...prev, labs: prev.labs ? `${prev.labs}\n\n--- AI Analysis from Image ---\n${extractedText}` : extractedText }));
+        } catch (err) {
+             setError('Failed to analyze lab report image. Please try again.');
+            console.error(err);
+        } finally {
+            setIsProcessingLabs(false);
+        }
+    };
+    
+    const handleAnalyzeExamImage = async (base64Data: string, mimeType: string) => {
+        setIsProcessingFindings(true);
+        setError(null);
+        try {
+            const extractedText = await analyzeExamImage(base64Data, mimeType);
+            setPatientData(prev => ({ ...prev, findings: prev.findings ? `${prev.findings}\n\n--- AI Description from Image ---\n${extractedText}` : extractedText }));
+        } catch (err) {
+             setError('Failed to analyze clinical image. Please try again.');
+            console.error(err);
+        } finally {
+            setIsProcessingFindings(false);
+        }
+    };
+
+    const handleAnalyzeImagingImage = async (base64Data: string, mimeType: string) => {
+        setIsProcessingImaging(true);
+        setError(null);
+        try {
+            const extractedText = await analyzeImagingImage(base64Data, mimeType);
+            setPatientData(prev => ({ ...prev, imaging: prev.imaging ? `${prev.imaging}\n\n--- AI Findings from Image ---\n${extractedText}` : extractedText }));
+        } catch (err) {
+             setError('Failed to analyze radiological image. Please try again.');
+            console.error(err);
+        } finally {
+            setIsProcessingImaging(false);
+        }
+    };
+
 
     const handlePdfDownload = () => {
         if (resultsRef.current) {
@@ -91,6 +136,14 @@ const App: React.FC = () => {
                             onSubmit={handleFormSubmit}
                             isLoading={isLoading}
                             onOpenSymptomChecker={() => setIsSymptomCheckerOpen(true)}
+                            tempUnit={tempUnit}
+                            setTempUnit={setTempUnit}
+                            onAnalyzeLabImage={handleAnalyzeLabImage}
+                            onAnalyzeExamImage={handleAnalyzeExamImage}
+                            onAnalyzeImagingImage={handleAnalyzeImagingImage}
+                            isProcessingLabs={isProcessingLabs}
+                            isProcessingFindings={isProcessingFindings}
+                            isProcessingImaging={isProcessingImaging}
                         />
                     </div>
                     <div className="lg:col-span-8 xl:col-span-9">

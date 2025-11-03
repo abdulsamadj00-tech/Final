@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Diagnosis } from '../types';
-import { ChevronDownIcon, CheckCircleIcon, XCircleIcon, BeakerIcon, PillIcon, HeartPulseIcon, SkullIcon } from './icons';
+import { ChevronDownIcon, CheckCircleIcon, XCircleIcon, BeakerIcon, PillIcon, HeartPulseIcon, SkullIcon, BookOpenIcon } from './icons';
 
 interface DiagnosisCardProps {
     diagnosis: Diagnosis;
@@ -17,6 +17,8 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
         if (prob > 25) return 'bg-yellow-500';
         return 'bg-green-500';
     };
+
+    const hasGuidelines = diagnosis.treatmentSuggestions.guidelines && diagnosis.treatmentSuggestions.guidelines.length > 0;
 
     return (
         <div className="bg-white rounded-lg shadow-md transition-all duration-300">
@@ -91,6 +93,14 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
                                     </ul>
                                 </div>
                              </div>
+                             {hasGuidelines && (
+                                <div className="mt-4 bg-slate-50 p-3 rounded-md">
+                                    <h5 className="font-semibold text-sm text-slate-700 mb-2 flex items-center"><BookOpenIcon className="h-5 w-5 mr-2 text-purple-500"/>Supporting Guidelines</h5>
+                                    <ul className="list-disc list-inside space-y-1 text-slate-600 text-sm">
+                                        {diagnosis.treatmentSuggestions.guidelines?.map((item, i) => <li key={i}>{item}</li>)}
+                                    </ul>
+                                </div>
+                             )}
                         </div>
 
                         {/* Morbidity & Mortality */}

@@ -1,4 +1,3 @@
-
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
@@ -11,6 +10,8 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
+  // Fix: The class property initializer for state was causing `this.props` to be unavailable.
+  // Switched to a standard constructor to ensure `super(props)` is called and the component is initialized correctly.
   constructor(props: Props) {
     super(props);
     this.state = {

@@ -15,12 +15,17 @@ export interface PatientData {
     labs: string;
     imaging: string;
     vitals: Vitals;
+    pmh?: string;
+    psh?: string;
+    socialHistory?: string;
+    allergies?: string;
 }
 
 export interface TreatmentSuggestions {
     firstLine: string[];
     secondLine: string[];
     lifestyle: string[];
+    guidelines?: string[];
 }
 
 export interface Diagnosis {

@@ -16,6 +16,7 @@ const diagnosisSchema = {
                 firstLine: { type: Type.ARRAY, items: { type: Type.STRING } },
                 secondLine: { type: Type.ARRAY, items: { type: Type.STRING } },
                 lifestyle: { type: Type.ARRAY, items: { type: Type.STRING } },
+                guidelines: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of supporting clinical guidelines, e.g., 'IDSA/ATS Guidelines 2019'." },
             },
         },
         morbidity: { type: Type.STRING, description: "A brief description of the potential morbidity, including percentages or common statistics." },
@@ -43,7 +44,7 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey: API_KEY });
 };
 
-export const generateDiagnoses = async (patientData: PatientData): Promise<Diagnosis[]> => {
+export const generateDiagnoses = async (patientData: PatientData, tempUnit: 'C' | 'F'): Promise<Diagnosis[]> => {
     const ai = getAiClient();
 
     const prompt = `
@@ -53,13 +54,17 @@ export const generateDiagnoses = async (patientData: PatientData): Promise<Diagn
         - Age: ${patientData.age}
         - Sex: ${patientData.sex}
         - Vital Signs:
-            - Temperature: ${patientData.vitals.temp || 'N/A'}
+            - Temperature: ${patientData.vitals.temp ? `${patientData.vitals.temp} °${tempUnit}` : 'N/A'}
             - Heart Rate: ${patientData.vitals.hr || 'N/A'}
             - Respiratory Rate: ${patientData.vitals.rr || 'N/A'}
             - Blood Pressure: ${patientData.vitals.bp || 'N/A'}
             - SpO2: ${patientData.vitals.spo2 || 'N/A'}
-        - Symptoms: ${patientData.symptoms}
+        - Symptoms & Chief Complaint: ${patientData.symptoms}
         - Examination Findings: ${patientData.findings}
+        - Past Medical History: ${patientData.pmh || 'N/A'}
+        - Past Surgical History: ${patientData.psh || 'N/A'}
+        - Personal/Social History: ${patientData.socialHistory || 'N/A'}
+        - Allergies: ${patientData.allergies || 'N/A'}
         - Lab Results: ${patientData.labs}
         - Imaging: ${patientData.imaging}
 
@@ -68,6 +73,7 @@ export const generateDiagnoses = async (patientData: PatientData): Promise<Diagn
         For each diagnosis, provide the required information in the specified JSON format.
         The probabilities should be estimations for clinical support and not definitive.
         For morbidity and mortality, provide a brief description including common statistics or percentages (e.g., "5-year mortality rate is approx. 10-15%").
+        For treatment suggestions, you MUST include the source guidelines (e.g., name of the guideline and year) that the suggestions are based on. Prioritize recent and authoritative international guidelines (e.g., WHO, IDSA, AHA, ESC, NICE).
         Do not provide a final diagnosis. Frame all information as suggestions for a qualified medical professional.
 
         **Output Format:**
@@ -105,6 +111,51 @@ export const generateDiagnoses = async (patientData: PatientData): Promise<Diagn
     }
 };
 
+export const analyzeLabReportImage = async (base64Data: string, mimeType: string): Promise<string> => {
+    const ai = getAiClient();
+
+    const imagePart = {
+        inlineData: {
+            data: base64Data,
+            mimeType: mimeType,
+        },
+    };
+
+    const textPart = {
+        text: `You are an expert clinical pathologist AI. You will be provided with an image of a laboratory report. Your task is to:
+        1.  Perform OCR to extract all text from the lab report image with high fidelity.
+        2.  Identify the Test Panel (e.g., "Complete Blood Count," "Comprehensive Metabolic Panel").
+        3.  For each clinically significant parameter, extract the name, measured value, unit, and reference range.
+        4.  Flag any values that are 'Low' or 'High' based on the reference range.
+        5.  Generate a one-line clinical summary of the most significant findings (e.g., 'Microcytic anemia with thrombocytosis').
+        
+        Format the output as a concise, readable string suitable for a clinical notes field. Start with the test panel name in bold. Use bullet points for each parameter. Mark abnormal values clearly.
+        Example:
+**Complete Blood Count**
+- WBC: 12.5 x10^9/L (4.0-11.0) - HIGH
+- Hgb: 10.1 g/dL (13.5-17.5) - LOW
+- Plt: 450 x10^9/L (150-400) - HIGH
+**Summary:** Microcytic anemia with thrombocytosis.
+        `,
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, textPart] },
+        });
+
+        const resultText = response.text?.trim();
+        if (!resultText) {
+            throw new Error("AI did not return any text from the image.");
+        }
+        return resultText;
+    } catch (error) {
+        console.error("Error analyzing lab report image:", error);
+        throw new Error("Failed to analyze the lab report image.");
+    }
+};
+
 export const analyzeSymptoms = async (symptomText: string): Promise<string[]> => {
     const ai = getAiClient();
     
@@ -133,5 +184,80 @@ export const analyzeSymptoms = async (symptomText: string): Promise<string[]> =>
     } catch (error) {
         console.error("Error calling Gemini API for symptom analysis:", error);
         throw new Error("Failed to communicate with the AI service for symptom analysis.");
+    }
+};
+
+export const analyzeExamImage = async (base64Data: string, mimeType: string): Promise<string> => {
+    const ai = getAiClient();
+
+    const imagePart = {
+        inlineData: {
+            data: base64Data,
+            mimeType: mimeType,
+        },
+    };
+
+    const textPart = {
+        text: `Analyze this clinical image. Your task is to describe the findings in objective, medical terms suitable for a clinical note. Do not provide a diagnosis.
+Focus on:
+- Morphology: Describe the primary lesion (e.g., macule, papule, vesicle, plaque).
+- Distribution: Describe the pattern and location on the body (e.g., central, peripheral, diffuse, localized to extremities).
+- Color: Note the color (e.g., erythematous, violaceous, flesh-colored).
+- Edema: If present, note its severity (e.g., 1+ pitting to 4+ pitting).
+- Other: Note any scale, exudate, warmth, or skin breakdown.`,
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, textPart] },
+        });
+
+        const resultText = response.text?.trim();
+        if (!resultText) {
+            throw new Error("AI did not return any text from the image.");
+        }
+        return resultText;
+    } catch (error) {
+        console.error("Error analyzing clinical image:", error);
+        throw new Error("Failed to analyze the clinical image.");
+    }
+};
+
+export const analyzeImagingImage = async (base64Data: string, mimeType: string): Promise<string> => {
+    const ai = getAiClient();
+
+    const imagePart = {
+        inlineData: {
+            data: base64Data,
+            mimeType: mimeType,
+        },
+    };
+
+    const textPart = {
+        text: `Analyze the provided medical image. Act as a support tool for a radiologist. Identify and describe key findings for a preliminary report. Do not provide a definitive diagnosis.
+If it appears to be a Chest X-Ray, comment on:
+- Impression: Provide a general impression (e.g., "No acute cardiopulmonary process," "Findings suggestive of pneumonia").
+- Lungs: Comment on opacity (consolidation, nodule), effusion, pneumothorax. State location (e.g., "left lower lobe").
+- Cardiomediastinum: Comment on cardiac silhouette size (e.g., "cardiomegaly") and mediastinal contours.
+- Bones: Note any fractures or destructive lesions.
+- Support Devices: Identify and note the position of lines, tubes, and leads.
+If it is another type of study, describe the most salient findings objectively.`,
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: { parts: [imagePart, textPart] },
+        });
+
+        const resultText = response.text?.trim();
+        if (!resultText) {
+            throw new Error("AI did not return any text from the image.");
+        }
+        return resultText;
+    } catch (error) {
+        console.error("Error analyzing radiological image:", error);
+        throw new Error("Failed to analyze the radiological image.");
     }
 };
