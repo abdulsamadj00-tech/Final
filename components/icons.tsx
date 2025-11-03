@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Props for all icons
@@ -42,7 +43,7 @@ export const BeakerIcon: React.FC<IconProps> = ({ className }) => (
 );
 
 export const PillIcon: React.FC<IconProps> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
 );
@@ -72,7 +73,7 @@ export const DownloadIcon: React.FC<IconProps> = ({ className }) => (
 );
 
 export const DocumentTextIcon: React.FC<IconProps> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
 );
@@ -177,7 +178,6 @@ export const TagIcon: React.FC<IconProps> = ({ className }) => (
     </svg>
 );
 
-// Fix: Add the missing PlusCircleIcon component.
 export const PlusCircleIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -193,5 +193,18 @@ export const FolderOpenIcon: React.FC<IconProps> = ({ className }) => (
 export const ArrowUpOnSquareIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M9 12l3 3m0 0l3-3m-3 3V2.25" />
+    </svg>
+);
+
+export const UserGroupIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.962A3.75 3.75 0 0115 9.75v.008c0 .022-.002.044-.002.065A4.5 4.5 0 0112 1.5v2.25A2.25 2.25 0 009.75 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 016 1.5v2.25A2.25 2.25 0 003.75 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 010 1.5v2.25A2.25 2.25 0 002.25 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 01-3 1.5v2.25A2.25 2.25 0 00-.75 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 01-6 1.5v2.25A2.25 2.25 0 00-8.25 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 01-12 1.5v2.25A2.25 2.25 0 00-14.25 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 01-18 1.5v2.25A2.25 2.25 0 00-20.25 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 01-24 1.5v2.25A2.25 2.25 0 00-26.25 6v.008c0 .022-.002.044-.002.065A4.5 4.5 0 01-30 1.5V15M8.25 18.75a4.5 4.5 0 01-1.875-8.625A4.5 4.5 0 0112 6.75v-1.5a5.25 5.25 0 00-4.5-4.5v-1.5a5.25 5.25 0 00-4.5 4.5v1.5a5.25 5.25 0 004.5 4.5v1.5a5.25 5.25 0 004.5-4.5v-1.5a5.25 5.25 0 00-4.5-4.5V1.5" />
+    </svg>
+);
+
+export const ChartPieIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 100 15 7.5 7.5 0 000-15z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 00-7.5 7.5h7.5z" />
     </svg>
 );

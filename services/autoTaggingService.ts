@@ -35,9 +35,13 @@ const imagingKeywordsToTagMap: { [key: string]: string } = {
 export const generateAutoTags = (patientData: PatientData, diagnoses: Diagnosis[]): string[] => {
     const tags = new Set<string>();
 
+    // FIX: Properties 'labs' and 'imaging' do not exist on type 'PatientData'.
+    // Combine all investigation values into a single string for analysis.
+    const allInvestigationsText = Object.values(patientData.investigations).join('\n').toLowerCase();
+
     // 1. Analyze Lab Results for specific values and keywords
-    if (patientData.labs) {
-        const labsLower = patientData.labs.toLowerCase();
+    if (allInvestigationsText) {
+        const labsLower = allInvestigationsText;
         
         // Regex for hemoglobin. Matches "hgb", "hb", "hemoglobin" followed by a value.
         const hgbRegex = /(?:hgb|hb|hemoglobin)[\s:is=]*?(\d{1,2}(?:\.\d{1,2})?)/g;
@@ -74,8 +78,8 @@ export const generateAutoTags = (patientData: PatientData, diagnoses: Diagnosis[
     });
 
     // 3. Analyze Imaging Results for keywords
-    if (patientData.imaging) {
-        const imagingLower = patientData.imaging.toLowerCase();
+    if (allInvestigationsText) {
+        const imagingLower = allInvestigationsText;
         for (const keyword in imagingKeywordsToTagMap) {
             if (imagingLower.includes(keyword)) {
                 tags.add(imagingKeywordsToTagMap[keyword]);
@@ -84,11 +88,9 @@ export const generateAutoTags = (patientData: PatientData, diagnoses: Diagnosis[
     }
 
     // 4. Add tags based on data presence
-    if (patientData.imaging?.trim()) {
-        tags.add('Has Imaging');
-    }
-    if (patientData.labs?.trim()) {
-        tags.add('Has Labs');
+    // FIX: Replace separate checks for 'labs' and 'imaging' with a single check for 'investigations'.
+    if (Object.keys(patientData.investigations).length > 0) {
+        tags.add('Has Investigations');
     }
 
     return Array.from(tags);

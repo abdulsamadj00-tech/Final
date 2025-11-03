@@ -11,15 +11,16 @@ interface ReferralLetterModalProps {
     doctorDetails: DoctorDetails;
 }
 
+// FIX: Updated to use correct PatientData properties
 const generateSummary = (patientData: PatientData, diagnoses: Diagnosis[]): string => {
+    const investigationsText = Object.entries(patientData.investigations).map(([key, value]) => `${key}:\n${value}`).join('\n\n');
     return `
-This ${patientData.age}-year-old ${patientData.sex.toLowerCase()} presents with a chief complaint of: ${patientData.symptoms}.
+This ${patientData.age}-year-old ${patientData.sex.toLowerCase()} presents with a chief complaint of: ${patientData.primaryComplaint}.
 
 Key examination findings include: ${patientData.findings || 'Not specified'}.
 
 Relevant investigations show:
-Labs: ${patientData.labs || 'Not specified'}
-Imaging: ${patientData.imaging || 'Not specified'}
+${investigationsText || 'Not specified'}
 
 The AI-assisted differential diagnosis includes: ${diagnoses.map(d => `${d.diagnosisName} (${d.probability}%)`).join(', ')}.
 

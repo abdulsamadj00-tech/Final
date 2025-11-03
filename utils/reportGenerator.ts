@@ -146,46 +146,54 @@ export const generateComprehensivePdf = (
     writer.writeTitle('Clinical Summary Report');
 
     if (modules.demographics) {
-        writer.writeSectionHeader('Patient Demographics');
+        writer.writeSectionHeader('Patient Biodata');
         writer.writeKeyValue('Name', patientData.name);
         writer.writeKeyValue('Age', patientData.age);
         writer.writeKeyValue('Sex', patientData.sex);
-        writer.writeSubHeader('Presenting Complaint');
-        writer.writeText(patientData.symptoms);
+        writer.y += 5;
+
+        writer.writeSectionHeader('Presenting Complaints & HOPI');
+        // FIX: Property 'symptoms' does not exist on type 'PatientData'. Use 'primaryComplaint' instead.
+        writer.writeText(patientData.primaryComplaint);
         writer.y += 5;
     }
 
     if (modules.history) {
-        writer.writeSectionHeader('Patient History');
-        writer.writeSubHeader('Past Medical History');
+        writer.writeSectionHeader('Medical & Surgical History');
+        writer.writeSubHeader('Co-morbidities (Past Medical History)');
         writer.writeText(patientData.pmh);
         writer.writeSubHeader('Past Surgical History');
         writer.writeText(patientData.psh);
-        writer.writeSubHeader('Personal/Social History');
-        writer.writeText(patientData.socialHistory);
         writer.writeSubHeader('Allergies');
         writer.writeText(patientData.allergies);
         writer.y += 5;
-    }
 
-    if (modules.vitals) {
-        writer.writeSectionHeader('Vital Signs');
-        writer.writeText(formatVitals(patientData.vitals));
+        writer.writeSectionHeader('Personal & Social History');
+        writer.writeText(patientData.socialHistory);
         writer.y += 5;
     }
 
-    if (modules.findings) {
-        writer.writeSectionHeader('Examination Findings');
-        writer.writeText(patientData.findings);
+    if (modules.vitals || modules.findings) {
+        writer.writeSectionHeader('Systemic Examination');
+        if (modules.vitals) {
+            writer.writeSubHeader('Vital Signs');
+            writer.writeText(formatVitals(patientData.vitals));
+            writer.y += 2;
+        }
+        if (modules.findings) {
+            writer.writeSubHeader('Clinical Findings');
+            writer.writeText(patientData.findings);
+        }
         writer.y += 5;
     }
 
+    // FIX: Properties 'labs' and 'imaging' do not exist on type 'PatientData'. Use 'investigations' object.
     if (modules.investigations) {
-        writer.writeSectionHeader('Investigation Summary');
-        writer.writeSubHeader('Lab Results');
-        writer.writeText(patientData.labs);
-        writer.writeSubHeader('Imaging Results');
-        writer.writeText(patientData.imaging);
+        writer.writeSectionHeader('Investigations');
+        const investigationsText = Object.entries(patientData.investigations)
+            .map(([key, value]) => `--- ${key} ---\n${value}`)
+            .join('\n\n');
+        writer.writeText(investigationsText || 'N/A');
         writer.y += 5;
     }
 

@@ -1,66 +1,56 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { PatientData, Diagnosis, Encounter, DoctorDetails, ReportModules, DischargeData, ReferralData } from './types';
+import React, { useState, useCallback, useEffect } from 'react';
+import { PatientData, Diagnosis, Encounter, DoctorDetails, ReportModules, Treatment, ProgressNote, VitalsRecord, AIRecommendation } from './types';
 import Header from './components/Header';
 import DisclaimerFooter from './components/DisclaimerFooter';
-import { generateComprehensivePdf } from './utils/reportGenerator';
-import SymptomCheckerModal from './components/SymptomCheckerModal';
+import { generateComprehensivePdf, generateDischargeSummaryPdf, generateLamaPdf, generateReferralPdf } from './utils/reportGenerator';
 import InsightsModal from './components/InsightsModal';
-import { generateDiagnoses, generatePersonalizedInsights } from './services/geminiService';
+import { generateDiagnoses, generatePersonalizedInsights, generateAIRecommendations, generateProgressSummary } from './services/geminiService';
 import UserProfileModal from './components/UserProfileModal';
-import GenerateReportModal from './components/GenerateReportModal';
-import EncounterDashboard from './components/EncounterDashboard';
 import PatientRecordsView from './components/PatientRecordsView';
-import { generateAutoTags } from './services/autoTaggingService';
-import DischargeSummaryModal from './components/DischargeSummaryModal';
-import ReferralLetterModal from './components/ReferralLetterModal';
-import LamaModal from './components/LamaModal';
+import EncounterView from './components/EncounterDashboard';
 
 const BLANK_PATIENT_DATA: PatientData = {
     name: '',
     age: '',
     sex: 'Male',
-    symptoms: '',
+    primaryComplaint: '',
+    hopi: '',
     findings: '',
-    labs: '',
-    imaging: '',
     vitals: { temp: '', hr: '', rr: '', bp: '', spo2: '' },
     pmh: '',
     psh: '',
     socialHistory: '',
     allergies: '',
+    investigations: {},
+};
+
+const BLANK_ENCOUNTER: Omit<Encounter, 'id' | 'timestamp'> = {
+    patientData: BLANK_PATIENT_DATA,
+    provisionalDiagnoses: [],
+    finalDiagnosis: null,
+    treatments: [],
+    progressNotes: [],
+    vitalsHistory: [],
+    aiRecommendations: [],
+    status: 'Active',
+    tags: [],
 };
 
 const MAX_ENCOUNTERS = 50;
 
 const App: React.FC = () => {
-    const [view, setView] = useState<'dashboard' | 'records'>('dashboard');
+    const [activeView, setActiveView] = useState<'records' | 'encounter'>('records');
     const [encounters, setEncounters] = useState<Encounter[]>([]);
     const [currentEncounterId, setCurrentEncounterId] = useState<string | null>(null);
 
-    // Form/Dashboard State
-    const [patientData, setPatientData] = useState<PatientData>(BLANK_PATIENT_DATA);
-    const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
-    const [progressNotes, setProgressNotes] = useState<Encounter['progressNotes']>([]);
-    const [vitalsHistory, setVitalsHistory] = useState<Encounter['vitalsHistory']>([]);
-    const [encounterStatus, setEncounterStatus] = useState<Encounter['status']>('Needs Review');
-    const [encounterTags, setEncounterTags] = useState<Encounter['tags']>([]);
-
     // UI State
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
-    const [isSymptomCheckerOpen, setIsSymptomCheckerOpen] = useState<boolean>(false);
     const [isInsightsModalOpen, setIsInsightsModalOpen] = useState<boolean>(false);
-    const [tempUnit, setTempUnit] = useState<'C' | 'F'>('C');
     const [isGeneratingInsights, setIsGeneratingInsights] = useState<boolean>(false);
     const [insightsReport, setInsightsReport] = useState<string | null>(null);
     const [insightsError, setInsightsError] = useState<string | null>(null);
     const [doctorDetails, setDoctorDetails] = useState<DoctorDetails>({ name: '', role: '', licenseNumber: '' });
     const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
-    const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
-    const [isDischargeModalOpen, setIsDischargeModalOpen] = useState<boolean>(false);
-    const [isReferralModalOpen, setIsReferralModalOpen] = useState<boolean>(false);
-    const [isLamaModalOpen, setIsLamaModalOpen] = useState<boolean>(false);
     
     // Load initial data from localStorage
     useEffect(() => {
@@ -69,10 +59,20 @@ const App: React.FC = () => {
             if (savedDetails) setDoctorDetails(JSON.parse(savedDetails));
 
             const storedEncounters = localStorage.getItem('medDxEncounters');
-            if (storedEncounters) setEncounters(JSON.parse(storedEncounters));
-
+            if (storedEncounters) {
+                const parsedEncounters = JSON.parse(storedEncounters);
+                setEncounters(parsedEncounters);
+                // If there are no encounters, start a new one
+                if (parsedEncounters.length === 0) {
+                    handleNewEncounter();
+                }
+            } else {
+                 // If no encounters stored, start with a new one
+                handleNewEncounter();
+            }
         } catch (e) {
             console.error("Failed to load data from localStorage", e);
+            handleNewEncounter();
         }
     }, []);
 
@@ -84,123 +84,38 @@ const App: React.FC = () => {
             console.error("Failed to save encounters to localStorage", error);
         }
     }, [encounters]);
-    
-    // Auto-tagging effect
-    useEffect(() => {
-        // Debounce this effect to avoid running on every keystroke
-        const handler = setTimeout(() => {
-            if (view === 'dashboard') {
-                const newAutoTags = generateAutoTags(patientData, diagnoses);
-                setEncounterTags(prevTags => {
-                    const combined = [...prevTags, ...newAutoTags];
-                    const uniqueTags = [...new Set(combined)];
-                    // Only update state if tags have actually changed to prevent re-renders
-                    if (JSON.stringify(prevTags.sort()) !== JSON.stringify(uniqueTags.sort())) {
-                       return uniqueTags;
-                    }
-                    return prevTags;
-                });
-            }
-        }, 500); // 500ms debounce
-        
-        return () => clearTimeout(handler);
 
-    }, [patientData.labs, patientData.imaging, diagnoses, view]);
-
-    const handleSaveCurrentEncounter = useCallback(() => {
-        const encounterData: Omit<Encounter, 'id' | 'timestamp'> = {
-            patientData,
-            diagnoses,
-            progressNotes,
-            vitalsHistory,
-            status: encounterStatus,
-            tags: encounterTags,
-        };
-
+    const handleSaveEncounter = useCallback((updatedEncounter: Encounter) => {
         setEncounters(prev => {
-            if (currentEncounterId) {
-                // Update existing encounter
-                return prev.map(enc => enc.id === currentEncounterId ? { ...enc, ...encounterData } : enc);
-            } else {
-                // Create new encounter
-                const newEncounter: Encounter = {
-                    ...encounterData,
-                    id: new Date().toISOString() + Math.random(),
-                    timestamp: Date.now(),
-                };
-                setCurrentEncounterId(newEncounter.id);
-                const updatedEncounters = [newEncounter, ...prev];
-                return updatedEncounters.length > MAX_ENCOUNTERS ? updatedEncounters.slice(0, MAX_ENCOUNTERS) : updatedEncounters;
+            const index = prev.findIndex(enc => enc.id === updatedEncounter.id);
+            if (index !== -1) {
+                const newEncounters = [...prev];
+                newEncounters[index] = updatedEncounter;
+                return newEncounters;
             }
+            // If it's a new encounter, add it to the beginning
+            const updatedEncounters = [updatedEncounter, ...prev];
+            return updatedEncounters.length > MAX_ENCOUNTERS ? updatedEncounters.slice(0, MAX_ENCOUNTERS) : updatedEncounters;
         });
-    }, [patientData, diagnoses, progressNotes, vitalsHistory, encounterStatus, encounterTags, currentEncounterId]);
-    
-    const handleFormSubmit = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        setDiagnoses([]);
-        try {
-            const result = await generateDiagnoses(patientData, tempUnit);
-            const autoTags = generateAutoTags(patientData, result);
-            const currentTags = encounterTags;
-            const newTags = [...new Set([...currentTags, ...autoTags])];
+    }, []);
 
-            setDiagnoses(result);
-            setEncounterTags(newTags);
-            
-            const encounterData: Omit<Encounter, 'id' | 'timestamp'> = {
-                patientData,
-                diagnoses: result,
-                progressNotes,
-                vitalsHistory,
-                status: 'Needs Review',
-                tags: newTags,
-            };
-
-            setEncounters(prev => {
-                if (currentEncounterId) {
-                    return prev.map(enc => enc.id === currentEncounterId ? { ...enc, ...encounterData, diagnoses: result, tags: newTags } : enc);
-                } else {
-                    const newEncounter: Encounter = { ...encounterData, id: new Date().toISOString(), timestamp: Date.now() };
-                    setCurrentEncounterId(newEncounter.id);
-                    const updatedEncounters = [newEncounter, ...prev];
-                    return updatedEncounters.length > MAX_ENCOUNTERS ? updatedEncounters.slice(0, MAX_ENCOUNTERS) : updatedEncounters;
-                }
-            });
-
-        } catch (err) {
-            setError('Failed to generate diagnosis. Please check your input and try again.');
-            console.error(err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [patientData, tempUnit, progressNotes, vitalsHistory, encounterTags, currentEncounterId]);
-    
     const handleLoadEncounter = (id: string) => {
         const encounter = encounters.find(e => e.id === id);
         if (encounter) {
-            setPatientData(encounter.patientData);
-            setDiagnoses(encounter.diagnoses);
-            setProgressNotes(encounter.progressNotes || []);
-            setVitalsHistory(encounter.vitalsHistory || []);
-            setEncounterStatus(encounter.status || 'Needs Review');
-            setEncounterTags(encounter.tags || []);
             setCurrentEncounterId(encounter.id);
-            setError(null);
-            setView('dashboard');
+            setActiveView('encounter');
         }
     };
 
     const handleNewEncounter = () => {
-        setPatientData(BLANK_PATIENT_DATA);
-        setDiagnoses([]);
-        setProgressNotes([]);
-        setVitalsHistory([]);
-        setEncounterStatus('Needs Review');
-        setEncounterTags([]);
-        setCurrentEncounterId(null);
-        setError(null);
-        setView('dashboard');
+        const newEncounter: Encounter = {
+            ...BLANK_ENCOUNTER,
+            id: `CASE-${Date.now()}`,
+            timestamp: Date.now(),
+        };
+        setEncounters(prev => [newEncounter, ...prev].slice(0, MAX_ENCOUNTERS));
+        setCurrentEncounterId(newEncounter.id);
+        setActiveView('encounter');
     };
 
     const handleOpenInsightsModal = async () => {
@@ -209,8 +124,8 @@ const App: React.FC = () => {
         setInsightsReport(null);
         setIsInsightsModalOpen(true);
 
-        if (encounters.length < 5) {
-            setInsightsError("Not enough data. Please complete at least 5 encounters to enable insights.");
+        if (encounters.length < 2) { // Lowered for easier testing
+            setInsightsError("Not enough data. Please complete at least 2 encounters to enable insights.");
             setIsGeneratingInsights(false);
             return;
         }
@@ -233,60 +148,46 @@ const App: React.FC = () => {
         } catch (e) { console.error("Failed to save doctor details", e); }
     };
 
-    const handleGenerateReport = (reportDoctorDetails: DoctorDetails, modules: ReportModules) => {
-        generateComprehensivePdf(patientData, diagnoses, reportDoctorDetails, modules);
-        setEncounterStatus('Completed'); // Mark as completed when report is generated
-    };
+    const currentEncounter = encounters.find(e => e.id === currentEncounterId);
 
-    // Auto-save on changes, but only for the dashboard view
-    useEffect(() => {
-        if (view === 'dashboard' && (patientData !== BLANK_PATIENT_DATA || currentEncounterId)) {
-            const handler = setTimeout(() => {
-                handleSaveCurrentEncounter();
-            }, 1000); // Debounce time
-            return () => clearTimeout(handler);
+    const navigateTo = (view: 'records' | 'encounter') => {
+        if (view === 'encounter' && !currentEncounter) {
+            handleNewEncounter();
+        } else {
+            setActiveView(view);
         }
-    }, [patientData, diagnoses, progressNotes, vitalsHistory, encounterStatus, encounterTags, view, handleSaveCurrentEncounter]);
-
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-            <Header onOpenInsights={handleOpenInsightsModal} onOpenProfile={() => setIsProfileModalOpen(true)} onNavigate={setView} />
+            <Header
+                onOpenInsights={handleOpenInsightsModal}
+                onOpenProfile={() => setIsProfileModalOpen(true)}
+                onNavigate={navigateTo}
+                onNewEncounter={handleNewEncounter}
+            />
             <main className="container mx-auto p-4 lg:p-8">
-                {view === 'dashboard' ? (
-                     <EncounterDashboard
-                        patientData={patientData} setPatientData={setPatientData}
-                        diagnoses={diagnoses}
-                        progressNotes={progressNotes || []} setProgressNotes={setProgressNotes}
-                        vitalsHistory={vitalsHistory || []} setVitalsHistory={setVitalsHistory}
-                        encounterStatus={encounterStatus} setEncounterStatus={setEncounterStatus}
-                        encounterTags={encounterTags} setEncounterTags={setEncounterTags}
-                        isLoading={isLoading} error={error}
-                        tempUnit={tempUnit} setTempUnit={setTempUnit}
-                        onFormSubmit={handleFormSubmit}
-                        onOpenSymptomChecker={() => setIsSymptomCheckerOpen(true)}
-                        onOpenReportModal={() => setIsReportModalOpen(true)}
-                        onNewEncounter={handleNewEncounter}
-                        onOpenDischargeModal={() => setIsDischargeModalOpen(true)}
-                        onOpenReferralModal={() => setIsReferralModalOpen(true)}
-                        onOpenLamaModal={() => setIsLamaModalOpen(true)}
+                {activeView === 'records' ? (
+                    <PatientRecordsView encounters={encounters} onLoadEncounter={handleLoadEncounter} />
+                ) : currentEncounter ? (
+                    <EncounterView
+                        key={currentEncounter.id} // Re-mount component on encounter change
+                        encounter={currentEncounter}
+                        onSave={handleSaveEncounter}
+                        doctorDetails={doctorDetails}
                     />
                 ) : (
-                    <PatientRecordsView encounters={encounters} onLoadEncounter={handleLoadEncounter} />
+                    <div className="text-center py-16">
+                        <p className="text-slate-500">No encounter selected. Please select one from records or create a new one.</p>
+                        <button onClick={handleNewEncounter} className="mt-4 bg-primary-600 text-white font-semibold py-2 px-4 rounded-md shadow hover:bg-primary-700">
+                            Create New Case
+                        </button>
+                    </div>
                 )}
             </main>
             <DisclaimerFooter />
-            {isSymptomCheckerOpen && <SymptomCheckerModal onClose={() => setIsSymptomCheckerOpen(false)} onPopulate={(symptomText, conditions) => {
-                 const conditionsText = conditions.length > 0 ? `\n\nPotential Conditions Identified by AI Symptom Checker:\n- ${conditions.join('\n- ')}` : '';
-                 setPatientData(prev => ({...prev, symptoms: `${symptomText}${conditionsText}`}));
-                 setIsSymptomCheckerOpen(false);
-            }} />}
             {isInsightsModalOpen && <InsightsModal onClose={() => setIsInsightsModalOpen(false)} isLoading={isGeneratingInsights} report={insightsReport} error={insightsError} />}
             {isProfileModalOpen && <UserProfileModal onClose={() => setIsProfileModalOpen(false)} onSave={handleSaveProfile} initialDetails={doctorDetails} />}
-            {isReportModalOpen && diagnoses.length > 0 && <GenerateReportModal onClose={() => setIsReportModalOpen(false)} onGenerate={handleGenerateReport} patientData={patientData} diagnoses={diagnoses} initialDoctorDetails={doctorDetails} />}
-            {isDischargeModalOpen && <DischargeSummaryModal onClose={() => setIsDischargeModalOpen(false)} patientData={patientData} diagnoses={diagnoses} doctorDetails={doctorDetails} />}
-            {isReferralModalOpen && <ReferralLetterModal onClose={() => setIsReferralModalOpen(false)} patientData={patientData} diagnoses={diagnoses} doctorDetails={doctorDetails} />}
-            {isLamaModalOpen && <LamaModal onClose={() => setIsLamaModalOpen(false)} patientData={patientData} doctorDetails={doctorDetails} />}
         </div>
     );
 };

@@ -10,7 +10,7 @@ interface PatientRecordsViewProps {
 
 const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onLoadEncounter }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'Needs Review' | 'Completed'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | Encounter['status']>('all');
     const [dateFilter, setDateFilter] = useState('all');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -38,35 +38,39 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
 
         return encounters
             .filter(e => {
-                // Status Filter
                 if (statusFilter !== 'all' && e.status !== statusFilter) return false;
-                
-                // Date Filter
                 if (dateFilter !== 'all' && e.timestamp < dateCutoff) return false;
-
-                // Tag Filter (must have all selected tags)
                 if (selectedTags.length > 0 && !selectedTags.every(tag => e.tags?.includes(tag))) return false;
                 
-                // Search Term Filter
                 if (searchTerm.trim() === '') return true;
                 const lowerSearch = searchTerm.toLowerCase();
                 const nameMatch = e.patientData.name?.toLowerCase().includes(lowerSearch);
-                const diagnosisMatch = e.diagnoses.some(d => d.diagnosisName.toLowerCase().includes(lowerSearch));
+                const diagnosisMatch = e.provisionalDiagnoses.some(d => d.diagnosisName.toLowerCase().includes(lowerSearch)) || e.finalDiagnosis?.diagnosisName.toLowerCase().includes(lowerSearch);
                 const tagMatch = e.tags?.some(t => t.toLowerCase().includes(lowerSearch));
                 const idMatch = e.id.toLowerCase().includes(lowerSearch);
                 return nameMatch || diagnosisMatch || tagMatch || idMatch;
             })
-            .sort((a, b) => b.timestamp - a.timestamp); // Show most recent first
+            .sort((a, b) => b.timestamp - a.timestamp);
     }, [encounters, searchTerm, statusFilter, dateFilter, selectedTags]);
+    
+    const getStatusColor = (status: Encounter['status']) => {
+        switch(status) {
+            case 'Active': return 'bg-yellow-100 text-yellow-800';
+            case 'Discharged': return 'bg-green-100 text-green-800';
+            case 'Referred': return 'bg-blue-100 text-blue-800';
+            case 'LAMA': return 'bg-amber-100 text-amber-800';
+            default: return 'bg-slate-100 text-slate-800';
+        }
+    };
 
     return (
         <div className="max-w-6xl mx-auto">
             <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-slate-800">Patient Records</h2>
+                <h2 className="text-3xl font-bold text-slate-800">Patient Case Records</h2>
                 <p className="text-slate-500">Search, filter, and manage all patient encounters.</p>
             </div>
             
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6 sticky top-24 z-10">
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6 sticky top-[81px] z-10">
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                     <div className="relative md:col-span-3">
                         <MagnifyingGlassIcon className="h-5 w-5 text-slate-400 absolute top-1/2 left-3 -translate-y-1/2" />
@@ -79,22 +83,20 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
                         />
                     </div>
                      <div className="md:col-span-1">
-                        <label htmlFor="status-filter" className="sr-only">Filter by status</label>
                         <select
-                            id="status-filter"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value as any)}
                              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm bg-white"
                         >
                             <option value="all">All Statuses</option>
-                            <option value="Needs Review">Needs Review</option>
-                            <option value="Completed">Completed</option>
+                            <option value="Active">Active</option>
+                            <option value="Discharged">Discharged</option>
+                            <option value="Referred">Referred</option>
+                            <option value="LAMA">LAMA</option>
                         </select>
                     </div>
                      <div className="md:col-span-2">
-                        <label htmlFor="date-filter" className="sr-only">Filter by date</label>
                         <select
-                            id="date-filter"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
                              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm bg-white"
@@ -135,15 +137,13 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
                             <div className="flex-grow">
                                 <p className="font-bold text-lg text-slate-800">{encounter.patientData.name || 'Unnamed Patient'}</p>
                                 <p className="text-sm text-slate-500">
-                                    {new Date(encounter.timestamp).toLocaleString()} | ID: ...{encounter.id.slice(-6)}
+                                    {new Date(encounter.timestamp).toLocaleString()} | ID: {encounter.id}
                                 </p>
                                 <p className="text-sm text-slate-700 mt-1">
-                                    <strong>Top Diagnosis:</strong> {encounter.diagnoses[0]?.diagnosisName || 'N/A'}
+                                    <strong>Diagnosis:</strong> {encounter.finalDiagnosis?.diagnosisName || encounter.provisionalDiagnoses[0]?.diagnosisName || 'N/A'}
                                 </p>
                                 <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                         encounter.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                     }`}>
+                                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(encounter.status)}`}>
                                         {encounter.status}
                                     </span>
                                     {encounter.tags?.map(tag => (
@@ -157,13 +157,13 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
                                 onClick={() => onLoadEncounter(encounter.id)}
                                 className="bg-primary-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-primary-700 w-full sm:w-auto flex-shrink-0"
                             >
-                                Open Encounter
+                                Open Case
                             </button>
                         </div>
                     ))
                 ) : (
                     <div className="text-center py-16 bg-white rounded-lg shadow-md">
-                        <p className="text-slate-500">No encounters match your search criteria.</p>
+                        <p className="text-slate-500">{encounters.length === 0 ? "No patient cases have been created yet." : "No encounters match your search criteria."}</p>
                         {encounters.length > 0 && (
                             <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDateFilter('all'); setSelectedTags([]); }} className="text-sm text-primary-600 hover:underline mt-2">
                                 Clear all filters

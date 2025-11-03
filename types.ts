@@ -11,31 +11,42 @@ export interface PatientData {
     name: string;
     age: string;
     sex: 'Male' | 'Female' | 'Other';
-    symptoms: string;
+    primaryComplaint: string;
+    hopi: string; // History of Present Illness
     findings: string;
-    labs: string;
-    imaging: string;
     vitals: Vitals;
-    pmh?: string;
-    psh?: string;
-    socialHistory?: string;
-    allergies?: string;
+    pmh: string;
+    psh: string;
+    socialHistory: string;
+    allergies: string;
+    investigations: { [key: string]: string }; // e.g., { "CBC": "WBC 12.5...", "TSH": "TSH 5.2..." }
 }
 
-export interface TreatmentSuggestions {
-    firstLine: string[];
-    secondLine: string[];
-    lifestyle: string[];
-    guidelines?: string[];
+export interface Treatment {
+    id: string;
+    drugName: string;
+    dosage: string;
+    duration: string;
+    line: 'First-line' | 'Second-line' | 'Empirical' | 'Combination' | 'Supportive';
+    source: 'AI-Recommended' | 'Clinician-Decided';
+    rationale: string;
+    isActive: boolean;
+    history: { date: number; reason: string }[];
 }
 
 export interface Diagnosis {
     diagnosisName: string;
+    icdCode: string;
     probability: number;
     supportingEvidence: string[];
     contradictingEvidence: string[];
     recommendedTests: string[];
-    treatmentSuggestions: TreatmentSuggestions;
+    treatmentSuggestions: {
+        firstLine: string[];
+        secondLine: string[];
+        lifestyle: string[];
+        guidelines?: string[];
+    };
     morbidity: string;
     mortality: string;
 }
@@ -44,31 +55,44 @@ export interface ProgressNote {
     id: string;
     timestamp: number;
     note: string;
+    symptomScore?: number; // Optional symptom score 1-10
 }
 
 export interface VitalsRecord extends Vitals {
     timestamp: number;
 }
 
-export interface Encounter {
+export interface AIRecommendation {
     id: string;
-    patientData: PatientData;
-    diagnoses: Diagnosis[];
+    recommendation: string;
+    causeAnalysis: string;
+    severity: 'Mild Adjustment' | 'Significant Review Needed' | 'Urgent Action Required';
     timestamp: number;
-    progressNotes?: ProgressNote[];
-    vitalsHistory?: VitalsRecord[];
-    status: 'Needs Review' | 'Completed';
+}
+
+export interface Encounter {
+    id: string; // Case ID / Serial Number
+    patientData: PatientData;
+    provisionalDiagnoses: Diagnosis[];
+    finalDiagnosis: Diagnosis | null;
+    treatments: Treatment[];
+    timestamp: number; // Date of entry
+    progressNotes: ProgressNote[];
+    vitalsHistory: VitalsRecord[];
+    aiRecommendations: AIRecommendation[];
+    status: 'Active' | 'Discharged' | 'Referred' | 'LAMA';
     tags: string[];
 }
 
+
+// These types are used by various modals and reports
 export interface DoctorDetails {
     name: string;
     role: string;
     licenseNumber: string;
 }
 
-export type ReportModuleKey = 'demographics' | 'history' | 'vitals' | 'findings' | 'investigations' | 'diagnoses';
-
+export type ReportModuleKey = 'demographics' | 'history' | 'vitals' | 'findings' | 'investigations' | 'diagnoses' | 'treatmentPlan' | 'progressSummary';
 export type ReportModules = Record<ReportModuleKey, boolean>;
 
 export interface DischargeData {

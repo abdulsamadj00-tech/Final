@@ -11,18 +11,22 @@ interface GenerateReportModalProps {
     initialDoctorDetails: DoctorDetails;
 }
 
+// FIX: Added missing keys to satisfy Record<ReportModuleKey, string>
 const moduleLabels: Record<ReportModuleKey, string> = {
-    demographics: "Patient Demographics",
-    history: "Past Medical & Social History",
+    demographics: "Patient Biodata & Presenting Complaint",
+    history: "Medical, Surgical, & Social History",
     vitals: "Vital Signs",
-    findings: "Examination Findings",
-    investigations: "Lab & Imaging Results",
+    findings: "Systemic Examination Findings",
+    investigations: "Investigations Summary",
     diagnoses: "AI-Generated Differential Diagnoses",
+    treatmentPlan: "Treatment Plan",
+    progressSummary: "Progress Summary",
 };
 
 
 const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGenerate, patientData, diagnoses, initialDoctorDetails }) => {
     const [doctorDetails, setDoctorDetails] = useState<DoctorDetails>(initialDoctorDetails);
+    // FIX: Added missing keys to satisfy ReportModules type
     const [modules, setModules] = useState<ReportModules>({
         demographics: true,
         history: true,
@@ -30,6 +34,8 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
         findings: true,
         investigations: true,
         diagnoses: true,
+        treatmentPlan: true,
+        progressSummary: true,
     });
 
     const handleDoctorDetailsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
