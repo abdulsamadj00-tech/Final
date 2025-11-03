@@ -1,182 +1,280 @@
 
-import React, { useState, useCallback, useRef } from 'react';
-import { PatientData, Diagnosis } from './types';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { PatientData, Diagnosis, Encounter, DoctorDetails, ReportModules } from './types';
 import Header from './components/Header';
-import InputForm from './components/InputForm';
-import ResultsDisplay from './components/ResultsDisplay';
 import DisclaimerFooter from './components/DisclaimerFooter';
-import ActionButtons from './components/ActionButtons';
-import { generatePdf, generateDischargeSummary, generateReferralLetter } from './utils/reportGenerator';
-import Modal from './components/Modal';
+import { generateComprehensivePdf } from './utils/reportGenerator';
 import SymptomCheckerModal from './components/SymptomCheckerModal';
-import { analyzeLabReportImage, generateDiagnoses, analyzeExamImage, analyzeImagingImage } from './services/geminiService';
+import InsightsModal from './components/InsightsModal';
+import { generateDiagnoses, generatePersonalizedInsights } from './services/geminiService';
+import UserProfileModal from './components/UserProfileModal';
+import GenerateReportModal from './components/GenerateReportModal';
+import EncounterDashboard from './components/EncounterDashboard';
+import PatientRecordsView from './components/PatientRecordsView';
+import { generateAutoTags } from './services/autoTaggingService';
+
+const BLANK_PATIENT_DATA: PatientData = {
+    name: '',
+    age: '',
+    sex: 'Male',
+    symptoms: '',
+    findings: '',
+    labs: '',
+    imaging: '',
+    vitals: { temp: '', hr: '', rr: '', bp: '', spo2: '' },
+    pmh: '',
+    psh: '',
+    socialHistory: '',
+    allergies: '',
+};
+
+const MAX_ENCOUNTERS = 50;
 
 const App: React.FC = () => {
-    const [patientData, setPatientData] = useState<PatientData>({
-        age: '',
-        sex: 'Male',
-        symptoms: '',
-        findings: '',
-        labs: '',
-        imaging: '',
-        vitals: { temp: '', hr: '', rr: '', bp: '', spo2: '' },
-        pmh: '',
-        psh: '',
-        socialHistory: '',
-        allergies: '',
-    });
+    const [view, setView] = useState<'dashboard' | 'records'>('dashboard');
+    const [encounters, setEncounters] = useState<Encounter[]>([]);
+    const [currentEncounterId, setCurrentEncounterId] = useState<string | null>(null);
+
+    // Form/Dashboard State
+    const [patientData, setPatientData] = useState<PatientData>(BLANK_PATIENT_DATA);
     const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+    const [progressNotes, setProgressNotes] = useState<Encounter['progressNotes']>([]);
+    const [vitalsHistory, setVitalsHistory] = useState<Encounter['vitalsHistory']>([]);
+    const [encounterStatus, setEncounterStatus] = useState<Encounter['status']>('Needs Review');
+    const [encounterTags, setEncounterTags] = useState<Encounter['tags']>([]);
+
+    // UI State
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isSymptomCheckerOpen, setIsSymptomCheckerOpen] = useState<boolean>(false);
-    const [modalContent, setModalContent] = useState({ title: '', content: '' });
+    const [isInsightsModalOpen, setIsInsightsModalOpen] = useState<boolean>(false);
     const [tempUnit, setTempUnit] = useState<'C' | 'F'>('C');
-    const [isProcessingLabs, setIsProcessingLabs] = useState<boolean>(false);
-    const [isProcessingFindings, setIsProcessingFindings] = useState<boolean>(false);
-    const [isProcessingImaging, setIsProcessingImaging] = useState<boolean>(false);
+    const [isGeneratingInsights, setIsGeneratingInsights] = useState<boolean>(false);
+    const [insightsReport, setInsightsReport] = useState<string | null>(null);
+    const [insightsError, setInsightsError] = useState<string | null>(null);
+    const [doctorDetails, setDoctorDetails] = useState<DoctorDetails>({ name: '', role: '', licenseNumber: '' });
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+    const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+    
+    // Load initial data from localStorage
+    useEffect(() => {
+        try {
+            const savedDetails = localStorage.getItem('medDxDoctorDetails');
+            if (savedDetails) setDoctorDetails(JSON.parse(savedDetails));
 
-    const resultsRef = useRef<HTMLDivElement>(null);
+            const storedEncounters = localStorage.getItem('medDxEncounters');
+            if (storedEncounters) setEncounters(JSON.parse(storedEncounters));
 
+        } catch (e) {
+            console.error("Failed to load data from localStorage", e);
+        }
+    }, []);
+
+    // Persist encounters whenever they change
+    useEffect(() => {
+        try {
+            localStorage.setItem('medDxEncounters', JSON.stringify(encounters));
+        } catch (error) {
+            console.error("Failed to save encounters to localStorage", error);
+        }
+    }, [encounters]);
+    
+    // Auto-tagging effect
+    useEffect(() => {
+        // Debounce this effect to avoid running on every keystroke
+        const handler = setTimeout(() => {
+            if (view === 'dashboard') {
+                const newAutoTags = generateAutoTags(patientData, diagnoses);
+                setEncounterTags(prevTags => {
+                    const combined = [...prevTags, ...newAutoTags];
+                    const uniqueTags = [...new Set(combined)];
+                    // Only update state if tags have actually changed to prevent re-renders
+                    if (JSON.stringify(prevTags.sort()) !== JSON.stringify(uniqueTags.sort())) {
+                       return uniqueTags;
+                    }
+                    return prevTags;
+                });
+            }
+        }, 500); // 500ms debounce
+        
+        return () => clearTimeout(handler);
+
+    }, [patientData.labs, patientData.imaging, diagnoses, view]);
+
+    const handleSaveCurrentEncounter = useCallback(() => {
+        const encounterData: Omit<Encounter, 'id' | 'timestamp'> = {
+            patientData,
+            diagnoses,
+            progressNotes,
+            vitalsHistory,
+            status: encounterStatus,
+            tags: encounterTags,
+        };
+
+        setEncounters(prev => {
+            if (currentEncounterId) {
+                // Update existing encounter
+                return prev.map(enc => enc.id === currentEncounterId ? { ...enc, ...encounterData } : enc);
+            } else {
+                // Create new encounter
+                const newEncounter: Encounter = {
+                    ...encounterData,
+                    id: new Date().toISOString() + Math.random(),
+                    timestamp: Date.now(),
+                };
+                setCurrentEncounterId(newEncounter.id);
+                const updatedEncounters = [newEncounter, ...prev];
+                return updatedEncounters.length > MAX_ENCOUNTERS ? updatedEncounters.slice(0, MAX_ENCOUNTERS) : updatedEncounters;
+            }
+        });
+    }, [patientData, diagnoses, progressNotes, vitalsHistory, encounterStatus, encounterTags, currentEncounterId]);
+    
     const handleFormSubmit = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         setDiagnoses([]);
         try {
             const result = await generateDiagnoses(patientData, tempUnit);
+            const autoTags = generateAutoTags(patientData, result);
+            const currentTags = encounterTags;
+            const newTags = [...new Set([...currentTags, ...autoTags])];
+
             setDiagnoses(result);
+            setEncounterTags(newTags);
+            
+            const encounterData: Omit<Encounter, 'id' | 'timestamp'> = {
+                patientData,
+                diagnoses: result,
+                progressNotes,
+                vitalsHistory,
+                status: 'Needs Review',
+                tags: newTags,
+            };
+
+            setEncounters(prev => {
+                if (currentEncounterId) {
+                    return prev.map(enc => enc.id === currentEncounterId ? { ...enc, ...encounterData, diagnoses: result, tags: newTags } : enc);
+                } else {
+                    const newEncounter: Encounter = { ...encounterData, id: new Date().toISOString(), timestamp: Date.now() };
+                    setCurrentEncounterId(newEncounter.id);
+                    const updatedEncounters = [newEncounter, ...prev];
+                    return updatedEncounters.length > MAX_ENCOUNTERS ? updatedEncounters.slice(0, MAX_ENCOUNTERS) : updatedEncounters;
+                }
+            });
+
         } catch (err) {
             setError('Failed to generate diagnosis. Please check your input and try again.');
             console.error(err);
         } finally {
             setIsLoading(false);
         }
-    }, [patientData, tempUnit]);
+    }, [patientData, tempUnit, progressNotes, vitalsHistory, encounterTags, currentEncounterId]);
+    
+    const handleLoadEncounter = (id: string) => {
+        const encounter = encounters.find(e => e.id === id);
+        if (encounter) {
+            setPatientData(encounter.patientData);
+            setDiagnoses(encounter.diagnoses);
+            setProgressNotes(encounter.progressNotes || []);
+            setVitalsHistory(encounter.vitalsHistory || []);
+            setEncounterStatus(encounter.status || 'Needs Review');
+            setEncounterTags(encounter.tags || []);
+            setCurrentEncounterId(encounter.id);
+            setError(null);
+            setView('dashboard');
+        }
+    };
 
-    const handleAnalyzeLabImage = async (base64Data: string, mimeType: string) => {
-        setIsProcessingLabs(true);
+    const handleNewEncounter = () => {
+        setPatientData(BLANK_PATIENT_DATA);
+        setDiagnoses([]);
+        setProgressNotes([]);
+        setVitalsHistory([]);
+        setEncounterStatus('Needs Review');
+        setEncounterTags([]);
+        setCurrentEncounterId(null);
         setError(null);
+        setView('dashboard');
+    };
+
+    const handleOpenInsightsModal = async () => {
+        setIsGeneratingInsights(true);
+        setInsightsError(null);
+        setInsightsReport(null);
+        setIsInsightsModalOpen(true);
+
+        if (encounters.length < 5) {
+            setInsightsError("Not enough data. Please complete at least 5 encounters to enable insights.");
+            setIsGeneratingInsights(false);
+            return;
+        }
+
         try {
-            const extractedText = await analyzeLabReportImage(base64Data, mimeType);
-            setPatientData(prev => ({ ...prev, labs: prev.labs ? `${prev.labs}\n\n--- AI Analysis from Image ---\n${extractedText}` : extractedText }));
+            const report = await generatePersonalizedInsights(encounters);
+            setInsightsReport(report);
         } catch (err) {
-             setError('Failed to analyze lab report image. Please try again.');
+            setInsightsError('Failed to generate personalized insights report. Please try again.');
             console.error(err);
         } finally {
-            setIsProcessingLabs(false);
+            setIsGeneratingInsights(false);
         }
     };
-    
-    const handleAnalyzeExamImage = async (base64Data: string, mimeType: string) => {
-        setIsProcessingFindings(true);
-        setError(null);
+
+    const handleSaveProfile = (details: DoctorDetails) => {
+        setDoctorDetails(details);
         try {
-            const extractedText = await analyzeExamImage(base64Data, mimeType);
-            setPatientData(prev => ({ ...prev, findings: prev.findings ? `${prev.findings}\n\n--- AI Description from Image ---\n${extractedText}` : extractedText }));
-        } catch (err) {
-             setError('Failed to analyze clinical image. Please try again.');
-            console.error(err);
-        } finally {
-            setIsProcessingFindings(false);
-        }
+            localStorage.setItem('medDxDoctorDetails', JSON.stringify(details));
+        } catch (e) { console.error("Failed to save doctor details", e); }
     };
 
-    const handleAnalyzeImagingImage = async (base64Data: string, mimeType: string) => {
-        setIsProcessingImaging(true);
-        setError(null);
-        try {
-            const extractedText = await analyzeImagingImage(base64Data, mimeType);
-            setPatientData(prev => ({ ...prev, imaging: prev.imaging ? `${prev.imaging}\n\n--- AI Findings from Image ---\n${extractedText}` : extractedText }));
-        } catch (err) {
-             setError('Failed to analyze radiological image. Please try again.');
-            console.error(err);
-        } finally {
-            setIsProcessingImaging(false);
-        }
+    const handleGenerateReport = (reportDoctorDetails: DoctorDetails, modules: ReportModules) => {
+        generateComprehensivePdf(patientData, diagnoses, reportDoctorDetails, modules);
+        setEncounterStatus('Completed'); // Mark as completed when report is generated
     };
 
-
-    const handlePdfDownload = () => {
-        if (resultsRef.current) {
-            generatePdf(resultsRef.current, patientData);
+    // Auto-save on changes, but only for the dashboard view
+    useEffect(() => {
+        if (view === 'dashboard' && (patientData !== BLANK_PATIENT_DATA || currentEncounterId)) {
+            const handler = setTimeout(() => {
+                handleSaveCurrentEncounter();
+            }, 1000); // Debounce time
+            return () => clearTimeout(handler);
         }
-    };
-    
-    const openModalWithContent = (type: 'discharge' | 'referral') => {
-        const content = type === 'discharge'
-            ? generateDischargeSummary(patientData, diagnoses)
-            : generateReferralLetter(patientData, diagnoses);
-        const title = type === 'discharge' ? 'Discharge Summary' : 'Referral Letter';
-        setModalContent({ title, content });
-        setIsModalOpen(true);
-    };
-    
-    const handlePopulateFromSymptomChecker = (symptomText: string, conditions: string[]) => {
-        const conditionsText = conditions.length > 0
-            ? `\n\nPotential Conditions Identified by AI Symptom Checker:\n- ${conditions.join('\n- ')}`
-            : '';
-        
-        setPatientData(prev => ({
-            ...prev,
-            symptoms: `${symptomText}${conditionsText}`
-        }));
-        setIsSymptomCheckerOpen(false);
-    };
+    }, [patientData, diagnoses, progressNotes, vitalsHistory, encounterStatus, encounterTags, view, handleSaveCurrentEncounter]);
 
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-            <Header />
+        <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
+            <Header onOpenInsights={handleOpenInsightsModal} onOpenProfile={() => setIsProfileModalOpen(true)} onNavigate={setView} />
             <main className="container mx-auto p-4 lg:p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4 xl:col-span-3">
-                        <InputForm
-                            patientData={patientData}
-                            setPatientData={setPatientData}
-                            onSubmit={handleFormSubmit}
-                            isLoading={isLoading}
-                            onOpenSymptomChecker={() => setIsSymptomCheckerOpen(true)}
-                            tempUnit={tempUnit}
-                            setTempUnit={setTempUnit}
-                            onAnalyzeLabImage={handleAnalyzeLabImage}
-                            onAnalyzeExamImage={handleAnalyzeExamImage}
-                            onAnalyzeImagingImage={handleAnalyzeImagingImage}
-                            isProcessingLabs={isProcessingLabs}
-                            isProcessingFindings={isProcessingFindings}
-                            isProcessingImaging={isProcessingImaging}
-                        />
-                    </div>
-                    <div className="lg:col-span-8 xl:col-span-9">
-                        {diagnoses.length > 0 && (
-                            <ActionButtons
-                                onPdfDownload={handlePdfDownload}
-                                onDischarge={() => openModalWithContent('discharge')}
-                                onReferral={() => openModalWithContent('referral')}
-                            />
-                        )}
-                        <ResultsDisplay
-                            diagnoses={diagnoses}
-                            isLoading={isLoading}
-                            error={error}
-                            ref={resultsRef}
-                        />
-                    </div>
-                </div>
+                {view === 'dashboard' ? (
+                     <EncounterDashboard
+                        patientData={patientData} setPatientData={setPatientData}
+                        diagnoses={diagnoses}
+                        progressNotes={progressNotes || []} setProgressNotes={setProgressNotes}
+                        vitalsHistory={vitalsHistory || []} setVitalsHistory={setVitalsHistory}
+                        encounterStatus={encounterStatus} setEncounterStatus={setEncounterStatus}
+                        encounterTags={encounterTags} setEncounterTags={setEncounterTags}
+                        isLoading={isLoading} error={error}
+                        tempUnit={tempUnit} setTempUnit={setTempUnit}
+                        onFormSubmit={handleFormSubmit}
+                        onOpenSymptomChecker={() => setIsSymptomCheckerOpen(true)}
+                        onOpenReportModal={() => setIsReportModalOpen(true)}
+                        onNewEncounter={handleNewEncounter}
+                    />
+                ) : (
+                    <PatientRecordsView encounters={encounters} onLoadEncounter={handleLoadEncounter} />
+                )}
             </main>
             <DisclaimerFooter />
-            {isModalOpen && (
-                <Modal
-                    title={modalContent.title}
-                    content={modalContent.content}
-                    onClose={() => setIsModalOpen(false)}
-                />
-            )}
-            {isSymptomCheckerOpen && (
-                <SymptomCheckerModal
-                    onClose={() => setIsSymptomCheckerOpen(false)}
-                    onPopulate={handlePopulateFromSymptomChecker}
-                />
-            )}
+            {isSymptomCheckerOpen && <SymptomCheckerModal onClose={() => setIsSymptomCheckerOpen(false)} onPopulate={(symptomText, conditions) => {
+                 const conditionsText = conditions.length > 0 ? `\n\nPotential Conditions Identified by AI Symptom Checker:\n- ${conditions.join('\n- ')}` : '';
+                 setPatientData(prev => ({...prev, symptoms: `${symptomText}${conditionsText}`}));
+                 setIsSymptomCheckerOpen(false);
+            }} />}
+            {isInsightsModalOpen && <InsightsModal onClose={() => setIsInsightsModalOpen(false)} isLoading={isGeneratingInsights} report={insightsReport} error={insightsError} />}
+            {isProfileModalOpen && <UserProfileModal onClose={() => setIsProfileModalOpen(false)} onSave={handleSaveProfile} initialDetails={doctorDetails} />}
+            {isReportModalOpen && diagnoses.length > 0 && <GenerateReportModal onClose={() => setIsReportModalOpen(false)} onGenerate={handleGenerateReport} patientData={patientData} diagnoses={diagnoses} initialDoctorDetails={doctorDetails} />}
         </div>
     );
 };

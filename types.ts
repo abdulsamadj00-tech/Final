@@ -8,6 +8,7 @@ export interface Vitals {
 }
 
 export interface PatientData {
+    name: string;
     age: string;
     sex: 'Male' | 'Female' | 'Other';
     symptoms: string;
@@ -38,3 +39,34 @@ export interface Diagnosis {
     morbidity: string;
     mortality: string;
 }
+
+export interface ProgressNote {
+    id: string;
+    timestamp: number;
+    note: string;
+}
+
+export interface VitalsRecord extends Vitals {
+    timestamp: number;
+}
+
+export interface Encounter {
+    id: string;
+    patientData: PatientData;
+    diagnoses: Diagnosis[];
+    timestamp: number;
+    progressNotes?: ProgressNote[];
+    vitalsHistory?: VitalsRecord[];
+    status: 'Needs Review' | 'Completed';
+    tags: string[];
+}
+
+export interface DoctorDetails {
+    name: string;
+    role: string;
+    licenseNumber: string;
+}
+
+export type ReportModuleKey = 'demographics' | 'history' | 'vitals' | 'findings' | 'investigations' | 'diagnoses';
+
+export type ReportModules = Record<ReportModuleKey, boolean>;

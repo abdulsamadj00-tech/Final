@@ -1,61 +1,85 @@
 
-import { PatientData, Diagnosis, Vitals } from '../types';
-// Note: Ensure jsPDF and html2canvas are loaded via script tags in index.html
+import { PatientData, Diagnosis, DoctorDetails, ReportModules, Vitals } from '../types';
 declare const jspdf: any;
-declare const html2canvas: any;
 
-export const generatePdf = (element: HTMLElement, patientData: PatientData) => {
-    if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-        alert('PDF generation library could not be loaded. Please check your internet connection and try again.');
-        console.error('jsPDF or html2canvas is not available.');
-        return;
+// Helper class for PDF generation to manage layout
+class PdfWriter {
+    doc: any;
+    y: number;
+    pageMargin: number;
+    pageHeight: number;
+    
+    constructor(jsPDF: any) {
+        this.doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        this.pageMargin = 15;
+        this.y = this.pageMargin;
+        this.pageHeight = this.doc.internal.pageSize.getHeight();
     }
 
-    const { jsPDF } = jspdf;
-    const doc = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
-    });
-    
-    doc.setFontSize(18);
-    doc.text('MediDx Assistant - Differential Diagnosis Report', 15, 20);
-    
-    doc.setFontSize(12);
-    doc.text('Patient Information:', 15, 30);
-    doc.setFontSize(10);
-    doc.text(`Age: ${patientData.age}`, 15, 36);
-    doc.text(`Sex: ${patientData.sex}`, 55, 36);
-    
-    html2canvas(element, { scale: 2 }).then((canvas: HTMLCanvasElement) => {
-        const imgData = canvas.toDataURL('image/png');
-        const imgProps = doc.getImageProperties(imgData);
-        const pdfWidth = doc.internal.pageSize.getWidth() - 30;
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        
-        let heightLeft = pdfHeight;
-        let position = 45;
-
-        doc.addImage(imgData, 'PNG', 15, position, pdfWidth, pdfHeight);
-        heightLeft -= doc.internal.pageSize.getHeight() - 50;
-
-        while (heightLeft >= 0) {
-            position = heightLeft - pdfHeight;
-            doc.addPage();
-            doc.addImage(imgData, 'PNG', 15, position, pdfWidth, pdfHeight);
-            heightLeft -= doc.internal.pageSize.getHeight();
+    checkPageBreak(heightNeeded: number) {
+        if (this.y + heightNeeded > this.pageHeight - this.pageMargin) {
+            this.doc.addPage();
+            this.y = this.pageMargin;
         }
+    }
 
-        doc.save(`MediDx-Report-${new Date().toISOString().split('T')[0]}.pdf`);
-    });
-};
+    writeTitle(text: string) {
+        this.checkPageBreak(15);
+        this.doc.setFontSize(18);
+        this.doc.setFont(undefined, 'bold');
+        this.doc.text(text, this.pageMargin, this.y);
+        this.y += 10;
+        this.doc.setFont(undefined, 'normal');
+    }
 
-const formatDate = () => new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    writeSectionHeader(text: string) {
+        this.checkPageBreak(10);
+        this.doc.setFontSize(14);
+        this.doc.setFont(undefined, 'bold');
+        this.doc.text(text, this.pageMargin, this.y);
+        this.y += 8;
+        this.doc.setFont(undefined, 'normal');
+    }
+    
+    writeSubHeader(text: string) {
+        this.checkPageBreak(8);
+        this.doc.setFontSize(11);
+        this.doc.setFont(undefined, 'bold');
+        this.doc.text(text, this.pageMargin, this.y);
+        this.y += 5;
+        this.doc.setFont(undefined, 'normal');
+    }
 
-const formatDiagnosesList = (diagnoses: Diagnosis[]) => {
-    if (diagnoses.length === 0) return "No potential diagnoses generated.";
-    return diagnoses.map((d, i) => `${i + 1}. ${d.diagnosisName} (Likelihood: ${d.probability}%)`).join('\n');
-};
+    writeText(text: string | string[], indent = 0) {
+        if (!text || (Array.isArray(text) && text.length === 0)) {
+            text = 'N/A';
+        }
+        
+        const maxWidth = this.doc.internal.pageSize.getWidth() - (this.pageMargin * 2) - indent;
+        const lines = this.doc.splitTextToSize(text, maxWidth);
+        this.checkPageBreak(lines.length * 5);
+        this.doc.setFontSize(10);
+        this.doc.text(lines, this.pageMargin + indent, this.y);
+        this.y += lines.length * 5;
+    }
+    
+    writeKeyValue(key: string, value: string) {
+        const fullText = `${key}: ${value || 'N/A'}`;
+        this.writeText(fullText);
+    }
+    
+    addSignatureLine() {
+        this.checkPageBreak(25);
+        this.y += 15;
+        this.doc.line(this.pageMargin, this.y, this.pageMargin + 70, this.y);
+        this.y += 5;
+        this.doc.text('Signature', this.pageMargin, this.y);
+    }
+
+    save(filename: string) {
+        this.doc.save(filename);
+    }
+}
 
 const formatVitals = (vitals: Vitals): string => {
     const parts = [
@@ -64,107 +88,90 @@ const formatVitals = (vitals: Vitals): string => {
         vitals.rr && `RR: ${vitals.rr} breaths/min`,
         vitals.bp && `BP: ${vitals.bp} mmHg`,
         vitals.spo2 && `SpO2: ${vitals.spo2}%`,
-    ].filter(Boolean); // Filter out any empty/falsy values
-    
-    if (parts.length === 0) return 'Not recorded.';
-    return parts.join(' | ');
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' | ') : 'Not recorded.';
 }
 
-const formatHistory = (patientData: PatientData): string => {
-    let history = '';
-    if (patientData.pmh) history += `\n- Past Medical History: ${patientData.pmh}`;
-    if (patientData.psh) history += `\n- Past Surgical History: ${patientData.psh}`;
-    if (patientData.socialHistory) history += `\n- Social History: ${patientData.socialHistory}`;
-    if (patientData.allergies) history += `\n- Allergies: ${patientData.allergies}`;
-    return history.trim() ? history : 'Not recorded.';
-}
+export const generateComprehensivePdf = (
+    patientData: PatientData, 
+    diagnoses: Diagnosis[], 
+    doctorDetails: DoctorDetails,
+    modules: ReportModules
+) => {
+    if (typeof jspdf === 'undefined') {
+        alert('PDF generation library not loaded. Please check your internet connection and try again.');
+        console.error('jsPDF is not available.');
+        return;
+    }
 
-export const generateDischargeSummary = (patientData: PatientData, diagnoses: Diagnosis[]): string => {
-    return `
-DISCHARGE SUMMARY
----------------------------------
+    const writer = new PdfWriter(jspdf.jsPDF);
 
-Date: ${formatDate()}
+    writer.writeTitle('Clinical Summary Report');
+    writer.writeText(`Date: ${new Date().toLocaleDateString()}`);
+    writer.y += 5;
 
-Patient Information:
-Age: ${patientData.age}
-Sex: ${patientData.sex}
+    if (modules.demographics) {
+        writer.writeSectionHeader('Patient Demographics');
+        writer.writeKeyValue('Age', patientData.age);
+        writer.writeKeyValue('Sex', patientData.sex);
+        writer.writeSubHeader('Presenting Complaint');
+        writer.writeText(patientData.symptoms);
+        writer.y += 5;
+    }
 
-Presenting Complaint:
-${patientData.symptoms}
+    if (modules.history) {
+        writer.writeSectionHeader('Patient History');
+        writer.writeSubHeader('Past Medical History');
+        writer.writeText(patientData.pmh);
+        writer.writeSubHeader('Past Surgical History');
+        writer.writeText(patientData.psh);
+        writer.writeSubHeader('Personal/Social History');
+        writer.writeText(patientData.socialHistory);
+        writer.writeSubHeader('Allergies');
+        writer.writeText(patientData.allergies);
+        writer.y += 5;
+    }
 
-Relevant History:${formatHistory(patientData)}
+    if (modules.vitals) {
+        writer.writeSectionHeader('Vital Signs');
+        writer.writeText(formatVitals(patientData.vitals));
+        writer.y += 5;
+    }
 
-Vital Signs:
-${formatVitals(patientData.vitals)}
+    if (modules.findings) {
+        writer.writeSectionHeader('Examination Findings');
+        writer.writeText(patientData.findings);
+        writer.y += 5;
+    }
 
-Key Examination & Investigation Findings:
-- Examination: ${patientData.findings || 'N/A'}
-- Labs: ${patientData.labs || 'N/A'}
-- Imaging: ${patientData.imaging || 'N/A'}
+    if (modules.investigations) {
+        writer.writeSectionHeader('Investigation Summary');
+        writer.writeSubHeader('Lab Results');
+        writer.writeText(patientData.labs);
+        writer.writeSubHeader('Imaging Results');
+        writer.writeText(patientData.imaging);
+        writer.y += 5;
+    }
 
-AI-Assisted Differential Diagnoses Considered:
-${formatDiagnosesList(diagnoses)}
+    if (modules.diagnoses) {
+        writer.writeSectionHeader('AI-Assisted Differential Diagnosis');
+        diagnoses.forEach((dx, index) => {
+            writer.checkPageBreak(30);
+            writer.writeSubHeader(`${index + 1}. ${dx.diagnosisName} (Likelihood: ${dx.probability}%)`);
+            writer.writeText(`Supporting Evidence: ${dx.supportingEvidence.join(', ')}`);
+            writer.writeText(`Contradicting Evidence: ${dx.contradictingEvidence.join(', ')}`);
+            writer.writeText(`Recommended Tests: ${dx.recommendedTests.join(', ')}`);
+            writer.writeText(`Treatment Guidelines: ${dx.treatmentSuggestions.guidelines?.join(', ') || 'N/A'}`);
+            writer.y += 3;
+        });
+    }
 
-Working Diagnosis / Plan:
-[**PHYSICIAN TO COMPLETE** - Based on clinical judgment, list the most likely diagnosis and management plan.]
+    writer.y += 10;
+    writer.writeText('Report generated by:');
+    writer.writeText(doctorDetails.name);
+    writer.writeText(doctorDetails.role);
+    writer.writeText(doctorDetails.licenseNumber);
+    writer.addSignatureLine();
 
-Discharge Medications:
-[**PHYSICIAN TO COMPLETE**]
-
-Follow-up:
-[**PHYSICIAN TO COMPLETE** - e.g., Follow up with primary care physician in 1 week.]
-
----------------------------------
-**IMPORTANT NOTE FOR THE PATIENT AND CLINICIAN:**
-
-This summary was generated with the assistance of an AI tool (MediDx Assistant) and REQUIRES thorough review, editing, and final approval by a qualified medical professional. It is not a substitute for professional clinical judgment.
-
-**Always consult a physician or other qualified health provider with any questions you may have regarding a medical condition.**
-    `;
-};
-
-export const generateReferralLetter = (patientData: PatientData, diagnoses: Diagnosis[]): string => {
-    return `
-[Physician's Name/Office]
-[Address]
-[Phone Number]
-[Date: ${formatDate()}]
-
-[Specialist's Name/Department]
-[Clinic/Hospital Address]
-
-RE: Patient Referral - Age ${patientData.age}, ${patientData.sex}
-
-Dear Dr. [Specialist's Last Name],
-
-I am referring this ${patientData.age}-year-old ${patientData.sex.toLowerCase()} for your expert consultation regarding [**PHYSICIAN TO INSERT REASON, e.g., evaluation of autoimmune disease**].
-
-The patient presented with the following symptoms:
-${patientData.symptoms}
-
-Relevant History:${formatHistory(patientData)}
-
-Vital Signs on presentation:
-${formatVitals(patientData.vitals)}
-
-Relevant findings include:
-- Examination: ${patientData.findings || 'N/A'}
-- Labs: ${patientData.labs || 'N/A'}
-- Imaging: ${patientData.imaging || 'N/A'}
-
-An AI-assisted differential diagnosis tool was utilized for clinical support and suggested the following possibilities based on the provided data:
-${formatDiagnosesList(diagnoses)}
-
-Given these findings, your assessment and recommendations for further management would be greatly appreciated. All relevant reports have been attached.
-
-Thank you for your time and consideration.
-
-Sincerely,
-
-[Physician's Name]
-
----------------------------------
-**NOTE:** This referral letter was drafted with AI assistance. All clinical information and AI-generated suggestions must be verified and signed off by the referring physician. The content is for informational purposes and does not constitute a formal diagnosis. **Please consult a physician for final medical decisions.**
-    `;
+    writer.save(`MediDx-Report-${new Date().toISOString().split('T')[0]}.pdf`);
 };

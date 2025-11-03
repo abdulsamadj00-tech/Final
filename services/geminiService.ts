@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { PatientData, Diagnosis } from '../types';
+import { PatientData, Diagnosis, Encounter } from '../types';
 
 const diagnosisSchema = {
     type: Type.OBJECT,
@@ -259,5 +259,65 @@ If it is another type of study, describe the most salient findings objectively.`
     } catch (error) {
         console.error("Error analyzing radiological image:", error);
         throw new Error("Failed to analyze the radiological image.");
+    }
+};
+
+export const generatePersonalizedInsights = async (encounters: Encounter[]): Promise<string> => {
+    const ai = getAiClient();
+
+    // To avoid exceeding token limits, we'll summarize the encounter data.
+    const summarizedEncounters = encounters.map(e => ({
+        diagnoses: e.diagnoses.map(d => d.diagnosisName),
+        chiefComplaint: e.patientData.symptoms.slice(0, 150) + '...', // Truncate
+        age: e.patientData.age,
+        sex: e.patientData.sex,
+    }));
+
+    const prompt = `
+        You are an AI analytics engine for a clinical support app called "MediDx Assistant".
+        Analyze the following anonymized clinical encounter data for a single clinician user and generate a private, personalized insights report.
+        The report should be encouraging, insightful, and help the user understand their practice patterns.
+        The data represents the last ${encounters.length} encounters.
+
+        **Encounter Data (Summarized):**
+        ${JSON.stringify(summarizedEncounters, null, 2)}
+
+        **Report Generation Requirements:**
+        Generate the report in Markdown format. The report MUST include the following sections:
+
+        1.  **### Practice Summary**
+            - Identify the top 3-5 most frequent diagnoses the user has encountered.
+            - Provide a count for each.
+            - Example: "In the last ${encounters.length} encounters, your top diagnoses were: Upper Respiratory Infection (15 encounters), Hypertension (10 encounters)..."
+
+        2.  **### Diagnostic Patterns**
+            - Analyze the types of chief complaints and resulting diagnoses.
+            - Example: "Your diagnostic patterns for patients presenting with chest pain show a consistent and appropriate consideration of both cardiac and non-cardiac causes." OR "For cases with suspected infectious causes, you consistently recommend appropriate first-line investigations."
+
+        3.  **### AI Collaboration Insights**
+            - Create a positive, statistic about how the user is leveraging the AI.
+            - Example: "The AI-powered image analysis feature has been used in several complex cases, suggesting effective integration of multimodal data into your workflow."
+
+        4.  **### Efficiency Gains**
+            - Provide an encouraging metric about efficiency.
+            - Example: "Using this tool to structure your differential diagnoses can help streamline the clinical reasoning process, potentially saving valuable time on complex cases."
+
+        Structure the output clearly with Markdown headings for each section. Keep the tone professional, supportive, and data-driven. Do not invent specific patient details. Focus on patterns.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: prompt,
+        });
+
+        const reportText = response.text?.trim();
+        if (!reportText) {
+            throw new Error("AI did not return any insights text.");
+        }
+        return reportText;
+    } catch (error) {
+        console.error("Error generating personalized insights:", error);
+        throw new Error("Failed to generate personalized insights.");
     }
 };
