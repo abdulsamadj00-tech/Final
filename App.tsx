@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { PatientData, Diagnosis, Encounter, DoctorDetails, ReportModules } from './types';
+import { PatientData, Diagnosis, Encounter, DoctorDetails, ReportModules, DischargeData, ReferralData } from './types';
 import Header from './components/Header';
 import DisclaimerFooter from './components/DisclaimerFooter';
 import { generateComprehensivePdf } from './utils/reportGenerator';
@@ -12,6 +12,9 @@ import GenerateReportModal from './components/GenerateReportModal';
 import EncounterDashboard from './components/EncounterDashboard';
 import PatientRecordsView from './components/PatientRecordsView';
 import { generateAutoTags } from './services/autoTaggingService';
+import DischargeSummaryModal from './components/DischargeSummaryModal';
+import ReferralLetterModal from './components/ReferralLetterModal';
+import LamaModal from './components/LamaModal';
 
 const BLANK_PATIENT_DATA: PatientData = {
     name: '',
@@ -55,6 +58,9 @@ const App: React.FC = () => {
     const [doctorDetails, setDoctorDetails] = useState<DoctorDetails>({ name: '', role: '', licenseNumber: '' });
     const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+    const [isDischargeModalOpen, setIsDischargeModalOpen] = useState<boolean>(false);
+    const [isReferralModalOpen, setIsReferralModalOpen] = useState<boolean>(false);
+    const [isLamaModalOpen, setIsLamaModalOpen] = useState<boolean>(false);
     
     // Load initial data from localStorage
     useEffect(() => {
@@ -261,6 +267,9 @@ const App: React.FC = () => {
                         onOpenSymptomChecker={() => setIsSymptomCheckerOpen(true)}
                         onOpenReportModal={() => setIsReportModalOpen(true)}
                         onNewEncounter={handleNewEncounter}
+                        onOpenDischargeModal={() => setIsDischargeModalOpen(true)}
+                        onOpenReferralModal={() => setIsReferralModalOpen(true)}
+                        onOpenLamaModal={() => setIsLamaModalOpen(true)}
                     />
                 ) : (
                     <PatientRecordsView encounters={encounters} onLoadEncounter={handleLoadEncounter} />
@@ -275,6 +284,9 @@ const App: React.FC = () => {
             {isInsightsModalOpen && <InsightsModal onClose={() => setIsInsightsModalOpen(false)} isLoading={isGeneratingInsights} report={insightsReport} error={insightsError} />}
             {isProfileModalOpen && <UserProfileModal onClose={() => setIsProfileModalOpen(false)} onSave={handleSaveProfile} initialDetails={doctorDetails} />}
             {isReportModalOpen && diagnoses.length > 0 && <GenerateReportModal onClose={() => setIsReportModalOpen(false)} onGenerate={handleGenerateReport} patientData={patientData} diagnoses={diagnoses} initialDoctorDetails={doctorDetails} />}
+            {isDischargeModalOpen && <DischargeSummaryModal onClose={() => setIsDischargeModalOpen(false)} patientData={patientData} diagnoses={diagnoses} doctorDetails={doctorDetails} />}
+            {isReferralModalOpen && <ReferralLetterModal onClose={() => setIsReferralModalOpen(false)} patientData={patientData} diagnoses={diagnoses} doctorDetails={doctorDetails} />}
+            {isLamaModalOpen && <LamaModal onClose={() => setIsLamaModalOpen(false)} patientData={patientData} doctorDetails={doctorDetails} />}
         </div>
     );
 };

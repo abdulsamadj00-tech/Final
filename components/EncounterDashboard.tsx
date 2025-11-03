@@ -1,12 +1,12 @@
-
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { PatientData, Diagnosis, ProgressNote, VitalsRecord, Encounter, Vitals } from '../types';
 import ModuleCard from './ModuleCard';
 import DiagnosisCard from './DiagnosisCard';
 import ActionButtons from './ActionButtons';
+// Fix: Import the missing ExclamationCircleIcon component.
 import { 
     UserCircleIcon, HeartPulseIcon, ClipboardDocumentListIcon, BeakerIcon, LightBulbIcon, PencilSquareIcon, CameraIcon, SparklesIcon, AnalyzeIcon, 
-    EmptyStateIcon, ErrorIcon, PlusCircleIcon, TagIcon, XCircleIcon, ChevronDownIcon
+    ErrorIcon, PlusCircleIcon, TagIcon, XCircleIcon, ChevronDownIcon, DocumentTextIcon, ArrowUpOnSquareIcon, ExclamationCircleIcon
 } from './icons';
 import { analyzeLabReportImage, analyzeExamImage, analyzeImagingImage } from '../services/geminiService';
 
@@ -30,6 +30,9 @@ interface EncounterDashboardProps {
     onOpenSymptomChecker: () => void;
     onOpenReportModal: () => void;
     onNewEncounter: () => void;
+    onOpenDischargeModal: () => void;
+    onOpenReferralModal: () => void;
+    onOpenLamaModal: () => void;
 }
 
 const formatVitalsRecord = (vitals: Vitals, tempUnit: 'C' | 'F'): string => {
@@ -43,9 +46,12 @@ const formatVitalsRecord = (vitals: Vitals, tempUnit: 'C' | 'F'): string => {
     return parts.join(' | ');
 }
 
+type DashboardTab = 'dataEntry' | 'progress' | 'documents';
+
 const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
-    const { patientData, setPatientData, diagnoses, progressNotes, setProgressNotes, vitalsHistory, setVitalsHistory, encounterStatus, setEncounterStatus, encounterTags, setEncounterTags, isLoading, error, tempUnit, setTempUnit, onFormSubmit, onOpenSymptomChecker, onOpenReportModal, onNewEncounter } = props;
+    const { patientData, setPatientData, diagnoses, progressNotes, setProgressNotes, vitalsHistory, setVitalsHistory, encounterStatus, setEncounterStatus, encounterTags, setEncounterTags, isLoading, error, tempUnit, setTempUnit, onFormSubmit, onOpenSymptomChecker, onOpenReportModal, onNewEncounter, onOpenDischargeModal, onOpenReferralModal, onOpenLamaModal } = props;
     
+    const [activeTab, setActiveTab] = useState<DashboardTab>('dataEntry');
     const [newProgressNote, setNewProgressNote] = useState('');
     const [isProcessingLabs, setIsProcessingLabs] = useState<boolean>(false);
     const [isProcessingFindings, setIsProcessingFindings] = useState<boolean>(false);
@@ -134,23 +140,12 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
 
     const isFormValid = patientData.age && patientData.symptoms;
 
-    return (
-        <div>
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h2 className="text-3xl font-bold text-slate-800">Encounter Dashboard</h2>
-                    <p className="text-slate-500">A unified view for patient assessment and diagnosis.</p>
-                </div>
-                <button onClick={onNewEncounter} className="flex items-center bg-white text-slate-700 font-semibold py-2 px-4 rounded-md shadow-sm border border-slate-300 hover:bg-slate-50">
-                    <PlusCircleIcon className="h-5 w-5 mr-2" />
-                    New Encounter
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-                {/* Left Column: Workstation */}
-                <div className="lg:col-span-3 space-y-6">
-                    <ModuleCard title="Patient Details & History" icon={<UserCircleIcon className="h-6 w-6"/>} initialOpen={true}>
+    const renderTabContent = () => {
+        switch (activeTab) {
+            case 'dataEntry':
+                return (
+                    <div className="space-y-6">
+                        <ModuleCard title="Patient Details & History" icon={<UserCircleIcon className="h-6 w-6"/>} initialOpen={true}>
                         <div className="space-y-4">
                             <div className="mb-4">
                                 <button
@@ -162,14 +157,19 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
                                     AI Symptom Checker
                                 </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                             <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="name" className="block text-sm font-medium text-slate-600 mb-1">Patient Name</label>
+                                    <input type="text" name="name" id="name" value={patientData.name} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., John Doe" />
+                                </div>
+                                <div/>
                                 <div>
                                     <label htmlFor="age" className="block text-sm font-medium text-slate-600 mb-1">Age</label>
-                                    <input type="number" name="age" id="age" value={patientData.age} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., 28" required />
+                                    <input type="number" name="age" id="age" value={patientData.age} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., 28" required />
                                 </div>
                                 <div>
                                     <label htmlFor="sex" className="block text-sm font-medium text-slate-600 mb-1">Sex</label>
-                                    <select name="sex" id="sex" value={patientData.sex} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                                    <select name="sex" id="sex" value={patientData.sex} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm">
                                         <option>Male</option>
                                         <option>Female</option>
                                         <option>Other</option>
@@ -178,7 +178,7 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
                             </div>
                             <div>
                                 <label htmlFor="symptoms" className="block text-sm font-medium text-slate-600 mb-1">Symptoms & Chief Complaint</label>
-                                <textarea name="symptoms" id="symptoms" rows={4} value={patientData.symptoms} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., Fever, joint pain, rash on cheeks..." required />
+                                <textarea name="symptoms" id="symptoms" rows={4} value={patientData.symptoms} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., Fever, joint pain, rash on cheeks..." required />
                             </div>
                             <div>
                                 <div className="flex justify-between items-center mb-1">
@@ -187,7 +187,7 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
                                     <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingFindings ? 'Analyzing...' : 'Upload Photo'}
                                     </button>
                                 </div>
-                                <textarea name="findings" id="findings" rows={3} value={patientData.findings} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., Malar rash, non-erosive arthritis..." />
+                                <textarea name="findings" id="findings" rows={3} value={patientData.findings} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., Malar rash, non-erosive arthritis..." />
                             </div>
                             <div className="border-t pt-4">
                                 <button type="button" onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="w-full flex justify-between items-center text-left font-semibold text-slate-700 mb-3 focus:outline-none">
@@ -204,9 +204,35 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
                                 )}
                             </div>
                         </div>
-                    </ModuleCard>
-
-                    <ModuleCard title="Vital Signs" icon={<HeartPulseIcon className="h-6 w-6"/>}>
+                        </ModuleCard>
+                        <ModuleCard title="Investigations" icon={<BeakerIcon className="h-6 w-6"/>}>
+                        <div className="space-y-4">
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label htmlFor="labs" className="block text-sm font-medium text-slate-600">Lab Results</label>
+                                    <button type="button" onClick={() => triggerFileUpload('labs')} disabled={isProcessingLabs} className="flex items-center text-xs text-primary-600 font-semibold hover:underline disabled:text-slate-400 disabled:cursor-not-allowed">
+                                    <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingLabs ? 'Analyzing...' : 'Upload Photo'}
+                                    </button>
+                                </div>
+                                <textarea name="labs" id="labs" rows={3} value={patientData.labs} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., ANA positive, ESR 50 mm/hr, or upload a photo of the report." />
+                            </div>
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label htmlFor="imaging" className="block text-sm font-medium text-slate-600">Imaging Results</label>
+                                    <button type="button" onClick={() => triggerFileUpload('imaging')} disabled={isProcessingImaging} className="flex items-center text-xs text-primary-600 font-semibold hover:underline disabled:text-slate-400 disabled:cursor-not-allowed">
+                                    <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingImaging ? 'Analyzing...' : 'Upload Photo'}
+                                    </button>
+                                </div>
+                                <textarea name="imaging" id="imaging" rows={3} value={patientData.imaging} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., Chest X-ray clear, MRI brain shows..." />
+                            </div>
+                        </div>
+                        </ModuleCard>
+                    </div>
+                );
+            case 'progress':
+                return (
+                    <div className="space-y-6">
+                        <ModuleCard title="Vital Signs" icon={<HeartPulseIcon className="h-6 w-6"/>} initialOpen={true}>
                         <div className="flex items-center gap-2 mb-3">
                             <span className="text-sm font-medium text-slate-600">Temp Unit:</span>
                             <button type="button" onClick={() => setTempUnit('C')} className={`px-3 py-1 text-sm rounded-md transition-colors ${tempUnit === 'C' ? 'bg-primary-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>°C</button>
@@ -239,30 +265,7 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
                             </div>
                         )}
                     </ModuleCard>
-
-                    <ModuleCard title="Investigations" icon={<BeakerIcon className="h-6 w-6"/>}>
-                        <div className="space-y-4">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label htmlFor="labs" className="block text-sm font-medium text-slate-600">Lab Results</label>
-                                    <button type="button" onClick={() => triggerFileUpload('labs')} disabled={isProcessingLabs} className="flex items-center text-xs text-primary-600 font-semibold hover:underline disabled:text-slate-400 disabled:cursor-not-allowed">
-                                    <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingLabs ? 'Analyzing...' : 'Upload Photo'}
-                                    </button>
-                                </div>
-                                <textarea name="labs" id="labs" rows={3} value={patientData.labs} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., ANA positive, ESR 50 mm/hr, or upload a photo of the report." />
-                            </div>
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label htmlFor="imaging" className="block text-sm font-medium text-slate-600">Imaging Results</label>
-                                    <button type="button" onClick={() => triggerFileUpload('imaging')} disabled={isProcessingImaging} className="flex items-center text-xs text-primary-600 font-semibold hover:underline disabled:text-slate-400 disabled:cursor-not-allowed">
-                                    <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingImaging ? 'Analyzing...' : 'Upload Photo'}
-                                    </button>
-                                </div>
-                                <textarea name="imaging" id="imaging" rows={3} value={patientData.imaging} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., Chest X-ray clear, MRI brain shows..." />
-                            </div>
-                        </div>
-                    </ModuleCard>
-                     <ModuleCard title="Progress Notes" icon={<PencilSquareIcon className="h-6 w-6"/>}>
+                     <ModuleCard title="Progress Notes" icon={<PencilSquareIcon className="h-6 w-6"/>} initialOpen={true}>
                         <div className="space-y-4">
                             <div>
                                 <textarea
@@ -286,6 +289,67 @@ const EncounterDashboard: React.FC<EncounterDashboardProps> = (props) => {
                             </div>
                         </div>
                     </ModuleCard>
+                    </div>
+                );
+            case 'documents':
+                 return (
+                    <ModuleCard title="Documents & Export" icon={<DocumentTextIcon className="h-6 w-6"/>} initialOpen={true}>
+                        <p className="text-slate-600 mb-4 text-sm">Generate standardized medical documents for this encounter. All documents can be edited before final PDF generation.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button onClick={onOpenReportModal} className="flex flex-col items-center justify-center p-4 bg-primary-50 text-primary-800 rounded-lg border-2 border-primary-200 hover:bg-primary-100 transition-colors">
+                                <DocumentTextIcon className="h-8 w-8 mb-2"/>
+                                <span className="font-semibold">Comprehensive Report</span>
+                            </button>
+                            <button onClick={onOpenReferralModal} className="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-800 rounded-lg border-2 border-blue-200 hover:bg-blue-100 transition-colors">
+                                <ArrowUpOnSquareIcon className="h-8 w-8 mb-2"/>
+                                <span className="font-semibold">Referral Letter</span>
+                            </button>
+                            <button onClick={onOpenDischargeModal} className="flex flex-col items-center justify-center p-4 bg-green-50 text-green-800 rounded-lg border-2 border-green-200 hover:bg-green-100 transition-colors">
+                                <ClipboardDocumentListIcon className="h-8 w-8 mb-2"/>
+                                <span className="font-semibold">Discharge Summary</span>
+                            </button>
+                            <button onClick={onOpenLamaModal} className="flex flex-col items-center justify-center p-4 bg-amber-50 text-amber-800 rounded-lg border-2 border-amber-200 hover:bg-amber-100 transition-colors">
+                                <ExclamationCircleIcon className="h-8 w-8 mb-2"/>
+                                <span className="font-semibold">LAMA Form</span>
+                            </button>
+                        </div>
+                    </ModuleCard>
+                 );
+            default:
+                return null;
+        }
+    }
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800">Encounter Dashboard</h2>
+                    <p className="text-slate-500">A unified view for patient assessment and diagnosis.</p>
+                </div>
+                <button onClick={onNewEncounter} className="flex items-center bg-white text-slate-700 font-semibold py-2 px-4 rounded-md shadow-sm border border-slate-300 hover:bg-slate-50">
+                    <PlusCircleIcon className="h-5 w-5 mr-2" />
+                    New Encounter
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+                {/* Left Column: Workstation */}
+                <div className="lg:col-span-3">
+                    <div className="mb-4 border-b border-slate-200">
+                        <nav className="-mb-px flex space-x-6">
+                            <button onClick={() => setActiveTab('dataEntry')} className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dataEntry' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Data Entry
+                            </button>
+                             <button onClick={() => setActiveTab('progress')} className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'progress' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Progress & Notes
+                            </button>
+                             <button onClick={() => setActiveTab('documents')} className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'documents' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Documents & Export
+                            </button>
+                        </nav>
+                    </div>
+                    {renderTabContent()}
                 </div>
 
                 {/* Right Column: AI Console */}

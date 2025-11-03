@@ -70,3 +70,16 @@ export interface DoctorDetails {
 export type ReportModuleKey = 'demographics' | 'history' | 'vitals' | 'findings' | 'investigations' | 'diagnoses';
 
 export type ReportModules = Record<ReportModuleKey, boolean>;
+
+export interface DischargeData {
+    finalDiagnosis: string;
+    hospitalCourse: string;
+    dischargeMedications: string;
+    followUpPlan: string;
+}
+
+export interface ReferralData {
+    receivingDoctor: string;
+    reasonForReferral: string;
+    clinicalSummary: string;
+}
