@@ -86,7 +86,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                                         name={key}
                                         checked={modules[key]}
                                         onChange={handleModuleChange}
-                                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                                     />
                                     <label htmlFor={key} className="ml-2 block text-sm text-slate-700">{moduleLabels[key]}</label>
                                 </div>
@@ -96,7 +96,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ onClose, onGe
                 </div>
 
                 <div className="flex justify-end p-4 border-t bg-slate-50">
-                    <button onClick={handleGenerate} className="flex items-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">
+                    <button onClick={handleGenerate} className="flex items-center bg-primary-600 text-white font-bold py-2 px-4 rounded-md shadow-sm hover:bg-primary-700">
                         <DownloadIcon className="h-5 w-5 mr-2"/>
                         Generate & Download PDF
                     </button>

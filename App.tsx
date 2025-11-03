@@ -244,7 +244,7 @@ const App: React.FC = () => {
 
 
     return (
-        <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
             <Header onOpenInsights={handleOpenInsightsModal} onOpenProfile={() => setIsProfileModalOpen(true)} onNavigate={setView} />
             <main className="container mx-auto p-4 lg:p-8">
                 {view === 'dashboard' ? (

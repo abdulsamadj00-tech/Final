@@ -116,7 +116,7 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
                                     onClick={() => handleTagClick(tag)}
                                     className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${
                                         selectedTags.includes(tag)
-                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            ? 'bg-primary-600 text-white border-primary-600'
                                             : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                                     }`}
                                 >
@@ -155,7 +155,7 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
                             </div>
                             <button
                                 onClick={() => onLoadEncounter(encounter.id)}
-                                className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-blue-700 w-full sm:w-auto flex-shrink-0"
+                                className="bg-primary-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-primary-700 w-full sm:w-auto flex-shrink-0"
                             >
                                 Open Encounter
                             </button>
@@ -165,7 +165,7 @@ const PatientRecordsView: React.FC<PatientRecordsViewProps> = ({ encounters, onL
                     <div className="text-center py-16 bg-white rounded-lg shadow-md">
                         <p className="text-slate-500">No encounters match your search criteria.</p>
                         {encounters.length > 0 && (
-                            <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDateFilter('all'); setSelectedTags([]); }} className="text-sm text-blue-600 hover:underline mt-2">
+                            <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDateFilter('all'); setSelectedTags([]); }} className="text-sm text-primary-600 hover:underline mt-2">
                                 Clear all filters
                             </button>
                         )}

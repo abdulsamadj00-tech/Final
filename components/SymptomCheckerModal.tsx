@@ -38,7 +38,7 @@ const SymptomCheckerModal: React.FC<SymptomCheckerModalProps> = ({ onClose, onPo
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center p-4 border-b">
-                    <h2 className="text-xl font-semibold flex items-center"><SparklesIcon className="h-6 w-6 mr-2 text-blue-600"/>AI Symptom Checker</h2>
+                    <h2 className="text-xl font-semibold flex items-center"><SparklesIcon className="h-6 w-6 mr-2 text-primary-600"/>AI Symptom Checker</h2>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
                         <XMarkIcon className="h-6 w-6" />
                     </button>
@@ -51,12 +51,12 @@ const SymptomCheckerModal: React.FC<SymptomCheckerModalProps> = ({ onClose, onPo
                         value={symptomText}
                         onChange={(e) => setSymptomText(e.target.value)}
                         placeholder="e.g., 'A 45-year-old male presents with sharp chest pain that radiates to his left arm, accompanied by shortness of breath and sweating.'"
-                        className="w-full h-40 p-3 bg-slate-50 border rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full h-40 p-3 bg-slate-50 border rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
                     />
                     
                     {isLoading && (
                         <div className="text-center p-4">
-                            <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin h-8 w-8 text-primary-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -72,7 +72,7 @@ const SymptomCheckerModal: React.FC<SymptomCheckerModalProps> = ({ onClose, onPo
                     )}
 
                     {conditions.length > 0 && !isLoading && (
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="mt-4 p-4 bg-primary-50 border border-primary-200 rounded-lg">
                             <h3 className="font-semibold text-slate-700 mb-2">Potential Conditions Identified:</h3>
                             <ul className="list-disc list-inside space-y-1">
                                 {conditions.map((condition, index) => (
@@ -87,7 +87,7 @@ const SymptomCheckerModal: React.FC<SymptomCheckerModalProps> = ({ onClose, onPo
                     <button
                         onClick={handleAnalyze}
                         disabled={!symptomText.trim() || isLoading}
-                        className="flex items-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-blue-700 disabled:bg-slate-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="flex items-center bg-primary-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-primary-700 disabled:bg-slate-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                     >
                         {isLoading ? 'Analyzing...' : 'Analyze Symptoms'}
                     </button>

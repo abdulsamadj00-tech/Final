@@ -11,7 +11,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onGenerateReport }) => {
         <div className="flex flex-wrap gap-2 mb-4">
             <button 
                 onClick={onGenerateReport}
-                className="flex items-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow hover:bg-blue-700 transition-colors"
+                className="flex items-center bg-primary-600 text-white font-semibold py-2 px-4 rounded-md shadow hover:bg-primary-700 transition-colors"
             >
                 <DocumentTextIcon className="h-5 w-5 mr-2"/>
                 Generate & Download Report

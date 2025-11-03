@@ -13,9 +13,9 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
 
     const getProbabilityColor = (prob: number) => {
         if (prob > 75) return 'bg-red-500';
-        if (prob > 50) return 'bg-orange-500';
-        if (prob > 25) return 'bg-yellow-500';
-        return 'bg-green-500';
+        if (prob > 50) return 'bg-amber-500';
+        if (prob > 25) return 'bg-lime-500';
+        return 'bg-primary-500';
     };
 
     const hasGuidelines = diagnosis.treatmentSuggestions.guidelines && diagnosis.treatmentSuggestions.guidelines.length > 0;
@@ -27,7 +27,7 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
                 className="w-full flex items-center justify-between p-4 text-left focus:outline-none"
             >
                 <div className="flex items-center">
-                    <span className="text-lg font-bold text-blue-700 mr-4">{index + 1}.</span>
+                    <span className="text-lg font-bold text-primary-700 mr-4">{index + 1}.</span>
                     <h3 className="text-lg font-semibold text-slate-800">{diagnosis.diagnosisName}</h3>
                 </div>
                 <div className="flex items-center">
@@ -64,7 +64,7 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
 
                         {/* Recommended Tests */}
                         <div>
-                            <h4 className="font-semibold text-slate-700 mb-2 flex items-center"><BeakerIcon className="h-5 w-5 mr-2 text-indigo-500"/>Recommended Tests</h4>
+                            <h4 className="font-semibold text-slate-700 mb-2 flex items-center"><BeakerIcon className="h-5 w-5 mr-2 text-primary-500"/>Recommended Tests</h4>
                             <ul className="list-disc list-inside space-y-1 text-slate-600">
                                 {diagnosis.recommendedTests.map((item, i) => <li key={i}>{item}</li>)}
                             </ul>
@@ -72,7 +72,7 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
                         
                         {/* Treatment Suggestions */}
                         <div className="md:col-span-2">
-                             <h4 className="font-semibold text-slate-700 mb-3 flex items-center"><PillIcon className="h-5 w-5 mr-2 text-teal-500"/>Treatment Suggestions</h4>
+                             <h4 className="font-semibold text-slate-700 mb-3 flex items-center"><PillIcon className="h-5 w-5 mr-2 text-primary-500"/>Treatment Suggestions</h4>
                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div className="bg-slate-50 p-3 rounded-md">
                                     <h5 className="font-semibold text-sm text-slate-600 mb-1">First-Line</h5>
@@ -95,7 +95,7 @@ const DiagnosisCard: React.FC<DiagnosisCardProps> = ({ diagnosis, index }) => {
                              </div>
                              {hasGuidelines && (
                                 <div className="mt-4 bg-slate-50 p-3 rounded-md">
-                                    <h5 className="font-semibold text-sm text-slate-700 mb-2 flex items-center"><BookOpenIcon className="h-5 w-5 mr-2 text-purple-500"/>Supporting Guidelines</h5>
+                                    <h5 className="font-semibold text-sm text-slate-700 mb-2 flex items-center"><BookOpenIcon className="h-5 w-5 mr-2 text-primary-500"/>Supporting Guidelines</h5>
                                     <ul className="list-disc list-inside space-y-1 text-slate-600 text-sm">
                                         {diagnosis.treatmentSuggestions.guidelines?.map((item, i) => <li key={i}>{item}</li>)}
                                     </ul>
