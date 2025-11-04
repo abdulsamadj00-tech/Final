@@ -10,9 +10,10 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  // Fix: Reverted state initialization to use a constructor. The class property
-  // syntax, while modern, was causing a type error where `this.props` was not
-  // recognized on the component instance, possibly due to a toolchain issue.
+  // Fix: Initializing state in the constructor and calling super(props) ensures
+  // that `this.props` is correctly typed and available in the component instance, resolving the type error.
+  public state: State;
+
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -21,15 +22,15 @@ class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">

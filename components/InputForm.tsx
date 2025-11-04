@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { PatientData } from '../types';
 import { AnalyzeIcon, SparklesIcon, ChevronDownIcon, CameraIcon } from './icons';
@@ -47,6 +46,17 @@ const InputForm: React.FC<InputFormProps> = ({
         }));
     };
     
+    // Fix: Add a handler for investigation fields which are stored in an object.
+    const handleInvestigationChange = (key: string, value: string) => {
+        setPatientData(prev => ({
+            ...prev,
+            investigations: {
+                ...prev.investigations,
+                [key]: value,
+            },
+        }));
+    };
+
     const triggerFileUpload = (target: 'labs' | 'findings' | 'imaging') => {
         setUploadTarget(target);
         fileInputRef.current?.click();
@@ -73,7 +83,8 @@ const InputForm: React.FC<InputFormProps> = ({
         e.target.value = ''; // Reset file input
     };
 
-    const isFormValid = patientData.age && patientData.symptoms;
+    // Fix: Validate against 'primaryComplaint' instead of non-existent 'symptoms'.
+    const isFormValid = patientData.age && patientData.primaryComplaint;
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg sticky top-8">
@@ -107,8 +118,9 @@ const InputForm: React.FC<InputFormProps> = ({
                 </div>
 
                 <div className="mb-4">
+                    {/* Fix: Bind to 'primaryComplaint' property. */}
                     <label htmlFor="symptoms" className="block text-sm font-medium text-slate-600 mb-1">Symptoms & Chief Complaint</label>
-                    <textarea name="symptoms" id="symptoms" rows={4} value={patientData.symptoms} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Fever, joint pain, rash on cheeks..." required />
+                    <textarea name="primaryComplaint" id="symptoms" rows={4} value={patientData.primaryComplaint} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Fever, joint pain, rash on cheeks..." required />
                 </div>
 
                 <div className="mb-4">
@@ -151,29 +163,31 @@ const InputForm: React.FC<InputFormProps> = ({
                 </div>
 
                 <div className="mb-4">
+                    {/* Fix: Bind to 'investigations' object. */}
                     <div className="flex justify-between items-center mb-1">
                         <label htmlFor="labs" className="block text-sm font-medium text-slate-600">Lab Results</label>
                         <button type="button" onClick={() => triggerFileUpload('labs')} disabled={isProcessingLabs} className="flex items-center text-xs text-blue-600 font-semibold hover:underline disabled:text-slate-400 disabled:cursor-not-allowed">
                            <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingLabs ? 'Analyzing...' : 'Upload Photo'}
                         </button>
                     </div>
-                    <textarea name="labs" id="labs" rows={3} value={patientData.labs} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., ANA positive, ESR 50 mm/hr, or upload a photo of the report." />
+                    <textarea name="labs" id="labs" rows={3} value={patientData.investigations['Labs'] || ''} onChange={(e) => handleInvestigationChange('Labs', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., ANA positive, ESR 50 mm/hr, or upload a photo of the report." />
                 </div>
 
                 <div className="mb-6">
+                    {/* Fix: Bind to 'investigations' object. */}
                     <div className="flex justify-between items-center mb-1">
                         <label htmlFor="imaging" className="block text-sm font-medium text-slate-600">Imaging Results</label>
                          <button type="button" onClick={() => triggerFileUpload('imaging')} disabled={isProcessingImaging} className="flex items-center text-xs text-blue-600 font-semibold hover:underline disabled:text-slate-400 disabled:cursor-not-allowed">
                            <CameraIcon className="h-4 w-4 mr-1"/> {isProcessingImaging ? 'Analyzing...' : 'Upload Photo'}
                         </button>
                     </div>
-                    <textarea name="imaging" id="imaging" rows={3} value={patientData.imaging} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., Chest X-ray clear, MRI brain shows..." />
+                    <textarea name="imaging" id="imaging" rows={3} value={patientData.investigations['Imaging'] || ''} onChange={(e) => handleInvestigationChange('Imaging', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., Chest X-ray clear, MRI brain shows..." />
                 </div>
                 
                 <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" capture="environment" className="hidden" />
 
                 <button type="submit" disabled={!isFormValid || isLoading} className="w-full flex items-center justify-center bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    {isLoading ? (<svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>) : (<AnalyzeIcon className="h-5 w-5 mr-2" />)}
+                    {isLoading ? (<svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>) : (<AnalyzeIcon className="h-5 w-5 mr-2" />)}
                     {isLoading ? 'Analyzing...' : 'Generate Diagnosis'}
                 </button>
             </form>

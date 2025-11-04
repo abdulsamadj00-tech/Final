@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { PatientData, Diagnosis, Encounter, AIRecommendation, ProgressNote, VitalsRecord } from '../types';
+import { PatientData, Diagnosis, Encounter, AIRecommendation, ProgressNote, VitalsRecord, MedicationSuggestion } from '../types';
 
 const diagnosisSchema = {
     type: Type.OBJECT,
@@ -35,6 +34,29 @@ const fullSchema = {
         },
     },
     required: ["diagnoses"],
+};
+
+const medicationSuggestionSchema = {
+    type: Type.OBJECT,
+    properties: {
+        drugName: { type: Type.STRING, description: "The generic name of the medication." },
+        dosage: { type: Type.STRING, description: "A typical starting dosage and frequency, e.g., '500 mg twice daily'." },
+        rationale: { type: Type.STRING, description: "A brief clinical rationale for using this medication for the given diagnosis." },
+        line: { type: Type.STRING, enum: ['First-line', 'Second-line', 'Supportive'], description: "The line of therapy." },
+        guideline: { type: Type.STRING, description: "The name and year of the clinical guideline supporting this recommendation, e.g., 'IDSA Guidelines 2021'." }
+    },
+    required: ["drugName", "dosage", "rationale", "line", "guideline"]
+};
+
+const medicationResponseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        medications: {
+            type: Type.ARRAY,
+            items: medicationSuggestionSchema
+        }
+    },
+    required: ["medications"]
 };
 
 const getAiClient = () => {
@@ -95,7 +117,7 @@ export const generateDiagnoses = async (patientData: PatientData, tempUnit: 'C' 
             },
         });
         
-        const jsonText = response.text?.trim();
+        const jsonText = response.text.trim();
 
         if (!jsonText) {
             throw new Error("Received an empty response from the AI.");
@@ -227,7 +249,7 @@ export const generatePersonalizedInsights = async (encounters: Encounter[]): Pro
             contents: prompt,
         });
 
-        const reportText = response.text?.trim();
+        const reportText = response.text.trim();
         if (!reportText) {
             throw new Error("AI did not return any insights text.");
         }
@@ -238,21 +260,146 @@ export const generatePersonalizedInsights = async (encounters: Encounter[]): Pro
     }
 };
 
-// All image analysis functions remain the same. To save space, they are omitted here but should be considered part of the file.
+export const extractTextFromImage = async (base64Data: string, mimeType: string, context: string): Promise<string> => {
+    const ai = getAiClient();
+    const imagePart = {
+        inlineData: {
+            data: base64Data,
+            mimeType,
+        },
+    };
 
-export const analyzeLabReportImage = async (base64Data: string, mimeType: string): Promise<string> => {
-    // Unchanged from previous version
-    return "Unchanged"; 
+    const prompt = `
+        You are an expert medical data extraction AI.
+        Your task is to analyze the provided image of a medical document and extract the relevant text.
+        The context for this image is: "${context}".
+        
+        Instructions:
+        1.  Accurately transcribe all relevant text from the image, including handwritten notes.
+        2.  Format the output as clean, readable text. If it's a form or has key-value pairs, try to preserve that structure.
+        3.  Do not add any commentary, greetings, or text that is not present in the document.
+        4.  Return ONLY the extracted text.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash", // Efficient vision-capable model
+            contents: { parts: [{text: prompt}, imagePart] },
+        });
+
+        const text = response.text.trim();
+        if (!text) {
+            throw new Error("AI could not extract any text from the image.");
+        }
+        return text;
+    } catch (error) {
+        console.error("Error calling Gemini API for image analysis:", error);
+        throw new Error("Failed to communicate with the AI service for image analysis.");
+    }
 };
+
+// Fix: Added missing analyzeSymptoms function to resolve import error.
 export const analyzeSymptoms = async (symptomText: string): Promise<string[]> => {
-    // Unchanged from previous version
-    return ["Unchanged"];
+    const ai = getAiClient();
+
+    const symptomAnalysisSchema = {
+        type: Type.OBJECT,
+        properties: {
+            conditions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "A list of potential medical conditions based on the symptoms."
+            },
+        },
+        required: ["conditions"],
+    };
+
+    const prompt = `
+        You are an expert medical AI assistant. Your purpose is to help clinicians by suggesting potential conditions based on a patient's symptoms.
+
+        **Symptom Description:**
+        ${symptomText}
+
+        **Task:**
+        Analyze the provided symptoms and generate a list of 3-5 potential differential diagnoses. This is for informational purposes to aid a qualified medical professional and is not a definitive diagnosis.
+
+        **Output Format:**
+        You MUST respond with ONLY a valid JSON object matching the provided schema. Do not include any text or markdown outside of the JSON.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: symptomAnalysisSchema,
+            },
+        });
+
+        const jsonText = response.text.trim();
+
+        if (!jsonText) {
+            throw new Error("Received an empty response from the AI for symptom analysis.");
+        }
+
+        const result = JSON.parse(jsonText);
+
+        if (result && Array.isArray(result.conditions)) {
+            return result.conditions;
+        } else {
+            throw new Error("Invalid response format from AI for symptom analysis.");
+        }
+
+    } catch (error) {
+        console.error("Error calling Gemini API for symptom analysis:", error);
+        throw new Error("Failed to communicate with the AI service for symptom analysis.");
+    }
 };
-export const analyzeExamImage = async (base64Data: string, mimeType: string): Promise<string> => {
-    // Unchanged from previous version
-    return "Unchanged";
-};
-export const analyzeImagingImage = async (base64Data: string, mimeType: string): Promise<string> => {
-    // Unchanged from previous version
-    return "Unchanged";
+
+export const suggestMedications = async (diagnosisName: string): Promise<MedicationSuggestion[]> => {
+    const ai = getAiClient();
+
+    const prompt = `
+        You are an expert medical AI assistant, "MediDx Assistant". Your purpose is to help clinicians by suggesting evidence-based medication options.
+
+        **Diagnosis:**
+        ${diagnosisName}
+
+        **Task:**
+        Based on the provided diagnosis, suggest 3-5 common, evidence-based medications.
+        For each medication, provide the required information in the specified JSON format.
+        You MUST cite a specific, authoritative clinical guideline (e.g., "GOLD 2023 Report", "ACC/AHA 2022 Guidelines") for each suggestion.
+
+        **Output Format:**
+        You MUST respond with ONLY a valid JSON object matching the provided schema. Do not include any text or markdown outside of the JSON.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: medicationResponseSchema,
+            },
+        });
+
+        const jsonText = response.text.trim();
+
+        if (!jsonText) {
+            throw new Error("Received an empty response from the AI for medication suggestions.");
+        }
+
+        const result = JSON.parse(jsonText);
+
+        if (result && Array.isArray(result.medications)) {
+            return result.medications;
+        } else {
+            throw new Error("Invalid response format from AI for medication suggestions.");
+        }
+    } catch (error) {
+        console.error("Error calling Gemini API for medication suggestions:", error);
+        throw new Error("Failed to communicate with the AI service for medication suggestions.");
+    }
 };

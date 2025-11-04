@@ -107,3 +107,11 @@ export interface ReferralData {
     reasonForReferral: string;
     clinicalSummary: string;
 }
+
+export interface MedicationSuggestion {
+    drugName: string;
+    dosage: string;
+    rationale: string;
+    line: 'First-line' | 'Second-line' | 'Supportive';
+    guideline: string;
+}

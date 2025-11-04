@@ -7,13 +7,13 @@ import { generateDischargeSummaryPdf } from '../utils/reportGenerator';
 interface DischargeSummaryModalProps {
     onClose: () => void;
     patientData: PatientData;
-    diagnoses: Diagnosis[];
+    finalDiagnosis: Diagnosis | null;
     doctorDetails: DoctorDetails;
 }
 
-const DischargeSummaryModal: React.FC<DischargeSummaryModalProps> = ({ onClose, patientData, diagnoses, doctorDetails }) => {
+const DischargeSummaryModal: React.FC<DischargeSummaryModalProps> = ({ onClose, patientData, finalDiagnosis, doctorDetails }) => {
     const [dischargeData, setDischargeData] = useState<DischargeData>({
-        finalDiagnosis: diagnoses[0]?.diagnosisName || '',
+        finalDiagnosis: finalDiagnosis?.diagnosisName || '',
         hospitalCourse: '',
         dischargeMedications: '',
         followUpPlan: '',
