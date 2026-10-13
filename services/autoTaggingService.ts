@@ -1,97 +1,37 @@
-
 import { PatientData, Diagnosis } from '../types';
 
-// Keyword mapping for diagnoses to broader categories
-const diagnosisToTagMap: { [key: string]: string[] } = {
-    'pneumonia': ['Infection', 'Pulmonary'],
-    'hypertension': ['Cardiovascular'],
-    'diabetes': ['Endocrine', 'Metabolic'],
-    'myocardial infarction': ['Cardiovascular', 'Ischemia'],
-    'atrial fibrillation': ['Cardiovascular', 'Arrhythmia'],
-    'stroke': ['Neurological', 'Cardiovascular'],
-    'anemia': ['Hematology'],
-    'sepsis': ['Infection', 'Critical Care'],
-    'cellulitis': ['Infection', 'Dermatology'],
-    'urinary tract infection': ['Infection', 'Urology'],
-    'covid-19': ['Infection', 'Viral', 'Pulmonary']
-};
-
-// Keywords to look for in imaging reports
-const imagingKeywordsToTagMap: { [key: string]: string } = {
-    'pulmonary nodule': 'Lung Nodule',
-    'consolidation': 'Consolidation',
-    'effusion': 'Pleural Effusion',
-    'opacity': 'Pulmonary Opacity',
-    'atelectasis': 'Atelectasis',
-    'fracture': 'Fracture',
-};
-
-/**
- * Analyzes patient and diagnosis data to generate a set of automated tags for indexing.
- * @param patientData The patient's clinical data.
- * @param diagnoses The list of AI-generated diagnoses.
- * @returns An array of string tags.
- */
 export const generateAutoTags = (patientData: PatientData, diagnoses: Diagnosis[]): string[] => {
-    const tags = new Set<string>();
-
-    // FIX: Properties 'labs' and 'imaging' do not exist on type 'PatientData'.
-    // Combine all investigation values into a single string for analysis.
-    const allInvestigationsText = Object.values(patientData.investigations).join('\n').toLowerCase();
-
-    // 1. Analyze Lab Results for specific values and keywords
-    if (allInvestigationsText) {
-        const labsLower = allInvestigationsText;
-        
-        // Regex for hemoglobin. Matches "hgb", "hb", "hemoglobin" followed by a value.
-        const hgbRegex = /(?:hgb|hb|hemoglobin)[\s:is=]*?(\d{1,2}(?:\.\d{1,2})?)/g;
-        let match;
-        while ((match = hgbRegex.exec(labsLower)) !== null) {
-            const value = parseFloat(match[1]);
-            if (value < 10) {
-                tags.add('Anemia');
-                break; // Found one, no need to continue checking for Hgb
-            }
-        }
-        // Also check for "LOW" flag from AI OCR which may be more reliable than parsing
-        if (labsLower.includes('hgb') && (labsLower.includes('low') || labsLower.includes('critically low'))) {
-             tags.add('Anemia');
-        }
-    }
+    const tags: string[] = [];
+    const text = (patientData.primaryComplaint + " " + patientData.hopi + " " + (patientData.findings || "")).toLowerCase();
     
-    // 2. Analyze Diagnoses from AI
-    diagnoses.forEach(dx => {
-        const dxNameLower = dx.diagnosisName.toLowerCase();
-        // Add the diagnosis name itself as a tag (formatted)
-        const formattedDxName = dx.diagnosisName
-            .split(' ')
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            .join(' ');
-        tags.add(formattedDxName);
+    if (text.includes('chest pain') || text.includes('angina') || text.includes('heart') || text.includes('palpitations')) {
+        tags.push('Cardiology');
+    }
+    if (text.includes('dyspnea') || text.includes('breath') || text.includes('cough') || text.includes('lung') || text.includes('pneumonia') || text.includes('embolism')) {
+        tags.push('Pulmonology');
+    }
+    if (text.includes('fever') || text.includes('infection') || text.includes('sepsis')) {
+        tags.push('Infectious Disease');
+    }
+    if (text.includes('headache') || text.includes('dizziness') || text.includes('neuropathy') || text.includes('stroke')) {
+        tags.push('Neurology');
+    }
+    if (text.includes('diabetes') || text.includes('glucose') || text.includes('thyroid')) {
+        tags.push('Endocrinology');
+    }
 
-        // Check against the map for categorical tags
-        for (const keyword in diagnosisToTagMap) {
-            if (dxNameLower.includes(keyword)) {
-                diagnosisToTagMap[keyword].forEach(tag => tags.add(tag));
-            }
+    diagnoses.forEach(d => {
+        const name = d.diagnosisName.toLowerCase();
+        if (name.includes('embolism') || name.includes('infarction') || name.includes('sepsis') || name.includes('acute')) {
+            tags.push('High Acuity');
+        } else {
+            tags.push('Chronic Care');
         }
     });
 
-    // 3. Analyze Imaging Results for keywords
-    if (allInvestigationsText) {
-        const imagingLower = allInvestigationsText;
-        for (const keyword in imagingKeywordsToTagMap) {
-            if (imagingLower.includes(keyword)) {
-                tags.add(imagingKeywordsToTagMap[keyword]);
-            }
-        }
+    if (tags.length === 0) {
+        tags.push('General Medicine');
     }
 
-    // 4. Add tags based on data presence
-    // FIX: Replace separate checks for 'labs' and 'imaging' with a single check for 'investigations'.
-    if (Object.keys(patientData.investigations).length > 0) {
-        tags.add('Has Investigations');
-    }
-
-    return Array.from(tags);
+    return Array.from(new Set(tags));
 };
