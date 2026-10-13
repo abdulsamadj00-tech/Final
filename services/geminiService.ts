@@ -60,17 +60,17 @@ const medicationResponseSchema = {
 };
 
 const getAiClient = () => {
-    let API_KEY = process.env.API_KEY;
-    if (typeof window !== 'undefined') {
-        const storedKey = localStorage.getItem('gemini_api_key');
-        if (storedKey && storedKey.trim() !== '') {
-            API_KEY = storedKey.trim();
-        }
+    const envKey =
+        (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) ||
+        (typeof process !== 'undefined' ? process.env.VITE_GEMINI_API_KEY : undefined) ||
+        (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) ||
+        (typeof process !== 'undefined' ? process.env.API_KEY : undefined);
+
+    if (!envKey) {
+        throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env.local file or enter it in the app profile.');
     }
-    if (!API_KEY) {
-        throw new Error("Gemini API Key not set. Please click the Profile icon in the top right header to add your API key.");
-    }
-    return new GoogleGenAI({ apiKey: API_KEY });
+
+    return new GoogleGenAI({ apiKey: envKey });
 };
 
 export const generateDiagnoses = async (patientData: PatientData, tempUnit: 'C' | 'F'): Promise<Diagnosis[]> => {
@@ -122,7 +122,7 @@ export const generateDiagnoses = async (patientData: PatientData, tempUnit: 'C' 
                 responseSchema: fullSchema,
             },
         });
-        
+
         const jsonText = response.text.trim();
 
         if (!jsonText) {
@@ -152,7 +152,7 @@ export const generateProgressSummary = async (progressNotes: ProgressNote[], vit
     // In a real app, you would send summarized data to the AI. For this demo, we'll simulate it.
     // This is a placeholder. A full implementation would involve a proper prompt and Gemini call.
     await new Promise(res => setTimeout(res, 1500)); // Simulate network delay
-    
+
     const lastNote = progressNotes[0]?.note || "No recent notes.";
     const improvementKeywords = ['better', 'improving', 'stable', 'recovering'];
     const deteriorationKeywords = ['worse', 'deteriorating', 'declining'];
@@ -199,7 +199,7 @@ export const generateAIRecommendations = async (encounter: Encounter): Promise<A
             });
         }
     }
-    
+
      if (recommendations.length === 0) {
           recommendations.push({
             id: `rec-${Date.now()}`,
@@ -216,7 +216,7 @@ export const generateAIRecommendations = async (encounter: Encounter): Promise<A
 
 export const generatePersonalizedInsights = async (encounters: Encounter[]): Promise<string> => {
     const ai = getAiClient();
-    
+
     const summarizedEncounters = encounters.map(e => ({
         diagnoses: (e.finalDiagnosis ? [e.finalDiagnosis.diagnosisName] : e.provisionalDiagnoses.map(d => d.diagnosisName)),
         primaryComplaint: e.patientData.primaryComplaint.slice(0, 150) + '...', // Truncate
@@ -279,7 +279,7 @@ export const extractTextFromImage = async (base64Data: string, mimeType: string,
         You are an expert medical data extraction AI.
         Your task is to analyze the provided image of a medical document and extract the relevant text.
         The context for this image is: "${context}".
-        
+
         Instructions:
         1.  Accurately transcribe all relevant text from the image, including handwritten notes.
         2.  Format the output as clean, readable text. If it's a form or has key-value pairs, try to preserve that structure.
