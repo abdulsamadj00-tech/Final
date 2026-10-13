@@ -60,9 +60,15 @@ const medicationResponseSchema = {
 };
 
 const getAiClient = () => {
-    const API_KEY = process.env.API_KEY;
+    let API_KEY = process.env.API_KEY;
+    if (typeof window !== 'undefined') {
+        const storedKey = localStorage.getItem('gemini_api_key');
+        if (storedKey && storedKey.trim() !== '') {
+            API_KEY = storedKey.trim();
+        }
+    }
     if (!API_KEY) {
-        throw new Error("API_KEY environment variable not set. Application cannot connect to the AI service.");
+        throw new Error("Gemini API Key not set. Please click the Profile icon in the top right header to add your API key.");
     }
     return new GoogleGenAI({ apiKey: API_KEY });
 };

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DoctorDetails } from '../types';
 import { XMarkIcon } from './icons';
 
@@ -11,6 +10,14 @@ interface UserProfileModalProps {
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onSave, initialDetails }) => {
     const [details, setDetails] = useState<DoctorDetails>(initialDetails);
+    const [apiKey, setApiKey] = useState<string>('');
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedKey = localStorage.getItem('gemini_api_key') || '';
+            setApiKey(savedKey);
+        }
+    }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -19,6 +26,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onSave, in
 
     const handleSave = () => {
         onSave(details);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('gemini_api_key', apiKey.trim());
+        }
         onClose();
     };
 
@@ -26,7 +36,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onSave, in
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
                 <div className="flex justify-between items-center p-4 border-b">
-                    <h2 className="text-xl font-semibold">Clinician Details</h2>
+                    <h2 className="text-xl font-semibold">Clinician & API Settings</h2>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
                         <XMarkIcon className="h-6 w-6" />
                     </button>
@@ -44,10 +54,15 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onSave, in
                         <label htmlFor="licenseNumber" className="block text-sm font-medium text-slate-600 mb-1">License / ID Number (Optional)</label>
                         <input type="text" name="licenseNumber" id="licenseNumber" value={details.licenseNumber} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="e.g., GMC #1234567" />
                     </div>
+                    <div>
+                        <label htmlFor="apiKeyInput" className="block text-sm font-medium text-slate-600 mb-1">Gemini API Key</label>
+                        <input type="password" id="apiKeyInput" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" placeholder="AIzaSy..." />
+                        <p className="text-xs text-slate-500 mt-1">Required to generate AI diagnoses and clinical recommendations.</p>
+                    </div>
                 </div>
                 <div className="flex justify-end p-4 border-t bg-slate-50">
                     <button onClick={handleSave} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">
-                        Save Details
+                        Save Settings
                     </button>
                 </div>
             </div>
